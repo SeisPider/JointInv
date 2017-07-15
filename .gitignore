@@ -1,4 +1,7 @@
 *.pyc
 __pycache__
 EQPROCE/
+node_modules
+package.json
+package-lock.json
 *.info
