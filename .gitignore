@@ -4,4 +4,6 @@ EQPROCE/
 node_modules
 package.json
 package-lock.json
+/info/POLES_ZEROS_file/
 *.info
+tests/

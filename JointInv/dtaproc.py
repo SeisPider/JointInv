@@ -56,30 +56,22 @@ For example:
     |    `-- ...
 """
 import os
-import logging
-from datetime import timedelta
+import re
 
-from obspy import read, UTCDateTime, Stream
+from obspy import read, Stream
 from obspy.io.sac import SACTrace
 from obspy.taup import TauPyModel
 from obspy.geodetics import locations2degrees
 from obspy.geodetics.base import gps2dist_azimuth
-# Setup the logger
-FORMAT = "[%(asctime)s]  %(levelname)s: %(message)s"
-logging.basicConfig(
-    level=logging.DEBUG,
-    format=FORMAT,
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
-
+from JointInv.global_var import logger
 
 class Client(object):
-    def __init__(self, stationinfo, mseeddir, sacdir, model='prem'):
+    def __init__(self, stationinfo, mseeddir, sacdir, responsedir, model='prem'):
         self.mseeddir = mseeddir
         self.sacdir = sacdir
         self.stations = self._read_stations(stationinfo)
         self.model = TauPyModel(model=model)
+        self.responsedir = responsedir
 
     def _read_stations(self, stationinfo):
         """
@@ -253,7 +245,6 @@ class Client(object):
         start_offset = by_phase['start_offset']
         end_offset = by_phase['end_offset']
 
-
         # TauPyModel.get_travel_times always return sorted value
         start_arrivals = self.model.get_travel_times(
             source_depth_in_km=event['depth'],
@@ -302,7 +293,6 @@ class Client(object):
             dirnames = self._get_dirname(starttime, endtime)
             logger.debug("dirnames: %s", dirnames)
 
-
         # loop over all stations
         for station in self.stations:
             logger.debug("station: %s", station['name'])
@@ -314,7 +304,7 @@ class Client(object):
                 logger.debug("dirnames: %s", dirnames)
             if epicenter:
                 dist = locations2degrees(event["latitude"], event["longitude"],
-                                              station["stla"], station["stlo"])
+                                         station["stla"], station["stlo"])
                 if dist < epicenter['minimum'] or dist > epicenter['maximum']:
                     continue
             if by_speed:
@@ -329,137 +319,9 @@ class Client(object):
                 continue
             self._writesac(st, event, station, outdir)
 
-
-            def _combine_stas(self):
-                """
-                Combine station and return station pairs
-
-                Parameters
-                ----------
-                sta_pairs: list
-                    station pairs container
-                """
-                sta_pairs = [{sta1.name:sta1,sta2.name:sta2}
-                             for sta1 in self.stations
-                             for sta2 in self.stations if sta2 != sta1]
-                return sta_pairs
-
-            def _linecriterion(self, sta_pair, event):
-                """
-                Judge if station pair share the same great circle with event.
-                (angle between line connecting stations and events is less than
-                three degrees)
-
-                """
-
-                # calculate azimuth and back-azimuth
-                sta1, sta2 = sta_pair.values()
-                intersta = DistAz(sta1["stla"], sta1["stlo"],
-                                  sta2["stla"], sta2["stlo"])
-                sta2evnt = DistAz(sta1["stla"], sta1["stlo"],
-                                  event["latitude"], event["longitude"])
-
-                # sta1-sta2-event
-                if np.abs(intersta.az-sta2evnt.az) < 3:
-                    logger.info("Common line: %s-%s-%s", sta1['name'],
-                                sta2['name'], event['origin'] )
-                    return {'sta1':sta1, 'sta2':sta2, 'event':event}# sta2-sta1-event
-                elif np.abs(np.abs(intersta.az-sta2evnt.az)-180) < 3:
-                    logger.info("Common line: %s-%s-%s", sta2['name'],
-                                sta1['name'], event['origin'] )
-                    return {'sta1':sta2, 'sta2':sta1, 'event':event}
-                else:
-                    return {}
-
-            def comlineselector(self, event):
-                """
-                Select matched station pair and event
-
-                """
-                sta_pairs = self._combine_stas()
-                matched_pair = []
-                for sta_pair in sta_pairs:
-                    selector = self._linecriterion(sta_pair, event)
-                    if not selector:
-                        continue
-               matched_pair = [self._linecriterion(sta_pair, event)
-                               for sta_pair in sta_pairs
-                               if self._linecriterion(sta_pair, event)]
-               return matched_pair
-
-def read_catalog(catalog):
-    '''
-    Read event catalog.
-
-    Format of event catalog:
-
-        origin  latitude  longitude  depth  magnitude  magnitude_type
-
-    Example:
-
-        2016-01-03T23:05:22.270  24.8036   93.6505  55.0 6.7  mww
-    '''
-    events = []
-    with open(catalog) as f:
-        for line in f:
-            origin, latitude, longitude, depth, magnitude = line.split()[0:5]
-            event = {
-                "origin": UTCDateTime(origin),
-                "latitude": float(latitude),
-                "longitude": float(longitude),
-                "depth": float(depth),
-                "magnitude": float(magnitude),
-            }
-            events.append(event)
-    return events
-
-
-if __name__ == '__main__':
-    stationinfo="./TrimData/XJSTA.info"
-    mseeddir="../../TianShan/MINISEEDData"
-    sacdir="./TrimData/SAC"
-    model="prem"
-    client = Client(stationinfo=stationinfo,
-                    mseeddir=mseeddir,
-                    sacdir=sacdir,
-                    model=model)
-
-    events = read_catalog("./Catalog/catalog/catalog.csv")
-    """
-    # Data Trim part
-
-    epicenter = {
-        "minimum": 30,
-        "maximum": 40
-    }
-    for event in events:
-        logger.info("origin: %s", event['origin'])
-        by_event = {"start_offset": 0, "duration": 6000}
-        by_phase = {
-            "start_ref_phase": ['P', 'p'],
-            "start_offset": -100,
-            "end_ref_phase": ['PcP'],
-            "end_offset": 200
-        }
-        by_speed = {
-                "minimum":2,
-                "maximum":5
-                }
-
-        client.get_waveform(event, by_speed=by_speed)
-
-    """
-    for event in events:
-        logger.info("origin: %s", event['origin'])
-        eventdir = event['origin'].strftime("%Y%m%d%H%M%S")
-        outdir = os.path.join(sacdir, eventdir)
-
-        # check if directory and files inside exist
-        if not os.path.exists(outdir) and not glob.glob(outdir+"/*"):
-            logger.error("FileNotFoundError")
-            continue
-
-
-
-
+    def view_station(self, sta_nm):
+        """
+        View information of station based on provided station name
+        """
+        return [sta for sta in self.stations if re.search(sta_nm, sta['name'])]
 
