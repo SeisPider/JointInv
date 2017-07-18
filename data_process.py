@@ -10,6 +10,7 @@ model = "prem"
 client = Client(stationinfo=stationinfo,
                 mseeddir=mseeddir,
                 sacdir=sacdir,
+                responsedir=responsedir,
                 model=model)
 
 tsevent = TsEvnt("./info/catalog.csv")

@@ -209,6 +209,21 @@ class Client(object):
             sac_fullname = os.path.join(outdir, sac_flnm)
             sac_trace.write(sac_fullname)
         return
+    def read_sac(self, event, traceid):
+        """
+        read trimed trace
+        """
+        eventdir = event['origin'].strftime("%Y%m%d%H%M%S")
+        outdir = os.path.join(self.sacdir, eventdir)
+        sac_flnm = ".".join([event["origin"].strftime("%Y.%j.%H.%M.%S"),
+                             "0000", traceid, "M", "SAC"])
+        sac_fullname = os.path.join(outdir, sac_flnm)
+        try:
+            trace = read(sac_fullname)
+            return trace
+        except:
+            logger.error("FileNotFoundError")
+            return None
 
     def _get_window(self, event, station=None, by_event=None, by_phase=None,
                     by_speed=None):
