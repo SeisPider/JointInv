@@ -5,7 +5,7 @@ processing, such as frequency-time analysis (FTAN) to measure
 dispersion curves.
 """
 
-import pserrors, psstation, psutils, pstomo
+from . import pserrors, psstation, psutils, pstomo
 import obspy.signal
 import obspy.xseed
 import obspy.signal.cross_correlation
@@ -36,13 +36,13 @@ from matplotlib import gridspec
 import datetime as dt
 
 from termcolor import colored # module to output colored string
-from JointInv.global_var import logger
+from pysismo.global_var import logger
 plt.ioff()  # turning off interactive mode
 
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================
-from psconfig import (
+from .psconfig import (
     CROSSCORR_DIR, FTAN_DIR, PERIOD_BANDS, CROSSCORR_TMAX, PERIOD_RESAMPLE,
     CROSSCORR_SKIPLOCS, MINFILL, FREQMIN, FREQMAX, CORNERS, ZEROPHASE,
     USE_COMBINATION_RESP,
@@ -2673,7 +2673,8 @@ def Get_paz_remove(filename=None):
             imag_part = float( "".join( line_str.split()[2:3] ) )
             zeros.append(complex(real_part,imag_part))
 
-    instrument = {'gain': gain, 'poles': poles, 'sensitivity': sensitivity,'zeros': zeros}
+    instrument = {'gain': gain, 'poles': poles, 'sensitivity': sensitivity,
+                  'zeros': zeros}
     XJ_file.close()
 
     return instrument
@@ -2685,9 +2686,9 @@ def load_pickled_xcorr(pickle_file):
     @type pickle_file: str or unicode
     @rtype: L{CrossCorrelationCollection}
     """
-    f = open(name=pickle_file, mode='rb')
-    xc = pickle.load(f)
-    f.close()
+    with open(pickle_file, mode='rb') as f:
+        xc = pickle.load(f)
+        f.close()
     return xc
 
 

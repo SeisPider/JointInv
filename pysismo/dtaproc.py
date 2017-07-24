@@ -63,7 +63,7 @@ from obspy.io.sac import SACTrace
 from obspy.taup import TauPyModel
 from obspy.geodetics import locations2degrees
 from obspy.geodetics.base import gps2dist_azimuth
-from JointInv.global_var import logger
+from .global_var import logger
 
 class Client(object):
     def __init__(self, stationinfo, mseeddir, sacdir, responsedir, model='prem'):

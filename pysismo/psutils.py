@@ -17,13 +17,13 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 import pyproj
 import itertools as it
-from pyPdf.pdf import PdfFileReader, PdfFileWriter
+from PyPDF2.pdf import PdfFileReader, PdfFileWriter
 
-from JointInv.global_var import logger
+from .global_var import logger
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================
-from psconfig import CROSSCORR_SKIPLOCS, COAST_SHP, TECTO_SHP, TECTO_LABELS, TECTO_COLORS
+from .psconfig import CROSSCORR_SKIPLOCS, COAST_SHP, TECTO_SHP, TECTO_LABELS, TECTO_COLORS
 
 # reference elipsoid to calculate distance
 wgs84 = pyproj.Geod(ellps='WGS84')

@@ -59,6 +59,8 @@ config = select_and_parse_config_file(basedir='./', ext='cnf', verbose=True)
 MSEED_DIR = config.get('paths', 'MSEED_DIR')
 STATIONXML_DIR = config.get('paths', 'STATIONXML_DIR')
 DATALESS_DIR = config.get('paths', 'DATALESS_DIR')
+RESP_DIR = config.get('paths','RESP_DIR')
+SACPZ_DIR = config.get('paths','SACPZ_DIR')
 
 # output dirs
 CROSSCORR_DIR = config.get('paths', 'CROSSCORR_DIR')
@@ -93,6 +95,8 @@ BBOX_SMALL = json.loads(config.get('maps', 'BBOX_SMALL'))
 # use dataless files or stationXML files to remove instrument response?
 USE_DATALESSPAZ = config.getboolean('cross-correlation', 'USE_DATALESSPAZ')
 USE_STATIONXML = config.getboolean('cross-correlation', 'USE_STATIONXML')
+USE_COMBINATION = config.getboolean('cross-correlation','USE_COMBINATION')
+USE_COMBINATION_RESP = config.getboolean('cross-correlation','USE_COMBINATION_RESP')
 
 # subset of stations to cross-correlate
 CROSSCORR_STATIONS_SUBSET = config.get('cross-correlation', 'CROSSCORR_STATIONS_SUBSET')

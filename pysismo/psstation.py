@@ -3,8 +3,7 @@ Definition of a class managing general information
 on a seismic station
 """
 
-import pserrors
-import psutils
+from . import pserrors, psutils
 import obspy
 import obspy.core
 from obspy import read_inventory
@@ -19,8 +18,8 @@ import numpy as np
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================
-from psconfig import MSEED_DIR, STATIONXML_DIR, DATALESS_DIR
-
+from .psconfig import MSEED_DIR, STATIONXML_DIR, DATALESS_DIR, RESP_DIR, SACPZ_DIR
+from .global_var import logger
 
 class Station:
     """
@@ -207,7 +206,7 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
     @rtype: list of L{Station}
     """
     if verbose:
-        print "Scanning stations in dir: " + mseed_dir
+        logger.info("Scanning stations in dir: %s", mseed_dir)
 
     # initializing list of stations by scanning name of miniseed files
     stations = []
@@ -242,11 +241,11 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
             station.subdirs.append(subdir)
 
     if verbose:
-        print 'Found {0} stations'.format(len(stations))
+        logger.info('Found {0} stations'.format(len(stations)))
 
     # adding lon/lat of stations from inventories
     if verbose:
-        print "Inserting coordinates to stations from inventories"
+        print ("Inserting coordinates to stations from inventories")
 
     for sta in copy(stations):
         # coordinates of station in dataless inventories
@@ -262,7 +261,7 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
         if not coords_set:
             # no coords found: removing station
             if verbose:
-                print "WARNING: skipping {} as no coords were found".format(repr(sta))
+                logger.warning("skipping {} as no coords were found".format(repr(sta)))
             stations.remove(sta)
         elif len(coords_set) == 1:
             # one set of coords found
@@ -281,7 +280,7 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
                 if verbose:
                     s = ("{} has several sets of coords within "
                          "tolerance: assigning mean coordinates")
-                    print s.format(repr(sta))
+                    logger.info(s.format(repr(sta)))
                 sta.coord = (np.mean(lons), np.mean(lats))
             else:
                 # coordinates differences are not within tolerance:
@@ -289,7 +288,7 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
                 if verbose:
                     s = ("WARNING: skipping {} with several sets of coords not "
                          "within tolerance (max lon diff = {}, max lat diff = {})")
-                    print s.format(repr(sta), maxdiff_lon, maxdiff_lat)
+                    logger.info(s.format(repr(sta), maxdiff_lon, maxdiff_lat))
                 stations.remove(sta)
 
     return stations
@@ -311,24 +310,21 @@ def get_stationxml_inventories(stationxml_dir=STATIONXML_DIR, verbose=False):
 
     if verbose:
         if flist:
-            print "Reading inventory in StationXML file:",
+            logger.info("Reading inventory in StationXML file:")
         else:
             s = u"Could not find any StationXML file (*.xml) in dir: {}!"
-            print s.format(stationxml_dir)
+            logger.error(s.format(stationxml_dir))
 
     for f in flist:
         if verbose:
-            print os.path.basename(f),
+            print(os.path.basename(f), end="")
         inv = read_inventory(f, format='stationxml')
         inventories.append(inv)
-
-    if flist and verbose:
-        print
 
     return inventories
 
 
-def get_RESP_filelists(resp_filepath=RESP_DIR,verbose=True)
+def get_RESP_filelists(resp_filepath=RESP_DIR, verbose=True):
     """
     Reads response given by RESP files whose names organized as RESP.<network>.<station>.<channel>
     e.g:RESP.XJ.AKS.BHZ
@@ -340,24 +336,25 @@ def get_RESP_filelists(resp_filepath=RESP_DIR,verbose=True)
 
     if verbose:
         if flist:
-            print "Scanning RESP files"
+            logger.info("Scanning RESP files")
         else:
             s = u"Could not find any RESP file (RESP*) in dir:{}!"
-            print s.format(RESP_DIR)
+            logger.info(s.format(RESP_DIR))
 
     for f in flist:
         if verbose:
-            print os.path.basename(f)
+            print(os.path.basename(f))
         resp_filepath.append(RESP_DIR+str(f))
 
-    for flist and verbose:
-        print "RESP files scanning finished Suc!"
+    if flist and verbose:
+        logger.info("RESP files scanning finished Suc!")
 
     return resp_filepath
 
-def get_PZ_filelists(resp_filepath=SAC_PZ_DIR,verbose=True)
+def get_PZ_filelists(resp_filepath=SACPZ_DIR, verbose=True):
     """
-    Reads response given by RESP files whose names organized as <year>.SAC.PZS.<network>.<station>.<channel>
+    Reads response given by RESP files whose names organized as
+    <year>.SAC.PZS.<network>.<station>.<channel>
     e.g:2016.SAC.PZS.XJ.AKS.BHZ
     """
     resp_filepath = []
@@ -367,18 +364,18 @@ def get_PZ_filelists(resp_filepath=SAC_PZ_DIR,verbose=True)
 
     if verbose:
         if flist:
-            print "Scanning SAC PZ files"
+            logger.info("Scanning SAC PZ files")
         else:
             s = u"Could not find any SAC PZ file (*SAC.PZS*) in dir:{}!"
-            print s.format(SAC_PZ_DIR)
+            logger.info(s.format(SAC_PZ_DIR))
 
     for f in flist:
         if verbose:
-            print os.path.basename(f)
+            print(os.path.basename(f))
         resp_filepath.append(SAC_PZ_DIR+str(f))
 
-    for flist and verbose:
-        print "SAC PZ files scanning finished Suc!"
+    if flist and verbose:
+        logger.info("SAC PZ files scanning finished Suc!")
 
     return resp_filepath
 
@@ -401,14 +398,14 @@ def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
 
     if verbose:
         if flist:
-            print "Reading inventory in dataless seed file:",
+            logger.info("Reading inventory in dataless seed file:")
         else:
             s = u"Could not find any dalatess seed file (*.dataless) in dir: {}!"
-            print s.format(dataless_dir)
+            logger.error(s.format(dataless_dir))
 
     for f in flist:
         if verbose:
-            print os.path.basename(f),
+            print(os.path.basename(f))
         inv = obspy.xseed.Parser(f)
         inventories.append(inv)
 
@@ -416,11 +413,11 @@ def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
     flist = glob.glob(pathname=os.path.join(dataless_dir, "*.pickle"))
 
     if flist and verbose:
-        print "\nReading inventory in pickle file:",
+        logger.info("\nReading inventory in pickle file:")
 
     for f in flist:
         if verbose:
-            print os.path.basename(f),
+            print (os.path.basename(f), end="")
         f = open(f, 'rb')
         inventories.extend(pickle.load(f))
         f.close()

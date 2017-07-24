@@ -1,6 +1,6 @@
 #! /usr/bin/python -u
-from JointInv.dtaproc import Client
-from JointInv.doublesta import TsEvnt
+from pysismo.dtaproc import Client
+from pysismo.doublesta import TsEvnt
 
 stationinfo = "./info/XJSTA.info"
 mseeddir = "../TianShan/MINISEEDData"

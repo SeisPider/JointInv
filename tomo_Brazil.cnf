@@ -78,16 +78,20 @@
 # RESP.XJ.AKS.BHZ
 #
 #
-MSEED_DIR = ../MINISEEDData
-STATIONXML_DIR = ../stationxml_files
-DATALESS_DIR = ../Dataless seed
-RESP_DIR = ../RESP_file
-SACPZ_DIR = ../POLES_ZEROS_file
+MSEED_DIR = ../TianShan/MINISEEDData
+STATIONXML_DIR = ../TianShan/stationxml_files
+DATALESS_DIR = ../TianShan/Dataless seed
+RESP_DIR = ../TianShan/RESP_file
+SACPZ_DIR = ../TianShan/POLES_ZEROS_file
 
-CROSSCORR_DIR = ../output/cross-correlation  ; dir of cross-correlation results
-FTAN_DIR = ../output/FTAN                    ; dir of FTAN results (including dispersion curves)
-TOMO_DIR = ../output/tomography              ; dir of tomographic inversion results
-DEPTHMODELS_DIR = ../output/1D_models        ; dir of 1D depth inversion results
+CROSSCORR_DIR = ../TianShan/output/cross-correlation  
+# dir of cross-correlation results
+FTAN_DIR = ../TianShan/output/FTAN                    
+# dir of FTAN results (including dispersion curves)
+TOMO_DIR = ../TianShan/output/tomography              
+# dir of tomographic inversion results
+DEPTHMODELS_DIR = ../Tianshan/output/1D_models        
+# dir of 1D depth inversion results
 
 # dir of the (binaries of the) Computer Programs in Seismology, used
 # to calculate a theoretical dispersion curve given a 1D model

@@ -5,7 +5,7 @@ JointInv
 
 A software for joint inversion  of ambient noise and earthquake surface wave
 """
-import JointInv.psconfig
+import pysismo.psconfig
 
 __title__ = "JointInv"
 __version__ = "0.1.0"
