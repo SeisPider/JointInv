@@ -78,19 +78,19 @@
 # RESP.XJ.AKS.BHZ
 #
 #
-MSEED_DIR = ../TianShan/MINISEEDData
-STATIONXML_DIR = ../TianShan/stationxml_files
-DATALESS_DIR = ../TianShan/Dataless seed
-RESP_DIR = ../TianShan/RESP_file
-SACPZ_DIR = ../TianShan/POLES_ZEROS_file
+MSEED_DIR = ../../Projects/TianShan/MINISEEDData
+STATIONXML_DIR = ../../Projects/TianShan/stationxml_files
+DATALESS_DIR = ../../Projects/TianShan/Dataless seed
+RESP_DIR = ../../Projects/TianShan/RESP_file
+SACPZ_DIR = ../../Projects/China/response/CSNPZ_2016
 
-CROSSCORR_DIR = ../TianShan/output/cross-correlation  
+CROSSCORR_DIR = ./output/cross_correlation 
 # dir of cross-correlation results
-FTAN_DIR = ../TianShan/output/FTAN                    
+FTAN_DIR = ./output/FTAN         
 # dir of FTAN results (including dispersion curves)
-TOMO_DIR = ../TianShan/output/tomography              
+TOMO_DIR = ./output/tomography              
 # dir of tomographic inversion results
-DEPTHMODELS_DIR = ../Tianshan/output/1D_models        
+DEPTHMODELS_DIR = ./output/1D_models        
 # dir of 1D depth inversion results
 
 # dir of the (binaries of the) Computer Programs in Seismology, used
@@ -165,13 +165,13 @@ USE_COMBINATION_RESP = False
 FIRSTDAY = 1/1/2016                 
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 31/12/2016                 
+LASTDAY = 1/2/2016                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.99                      
 # minimum data fill within day
 
-CROSSCORR_STATIONS_SUBSET = null    
+CROSSCORR_STATIONS_SUBSET = ["ALS", "WMQ"]    
 # subset of stations (null if all, else JSON list)
 CROSS_STATIONS_DELETE = ["SSH","DSZ", "AKS"] 
 # subset of stations (null if None, else JSON list)
@@ -188,7 +188,7 @@ ZEROPHASE = True
 PERIOD_RESAMPLE = 1.0               
 # resample period to decimate traces, after band-pass
 
-ONEBIT_NORM = False                 
+ONEBIT_NORM = True                 
 # one-bit normalization?
 PERIODMIN_EARTHQUAKE = 15.0         
 # earthquakes periods band

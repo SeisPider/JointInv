@@ -101,6 +101,8 @@ USE_COMBINATION_RESP = config.getboolean('cross-correlation','USE_COMBINATION_RE
 # subset of stations to cross-correlate
 CROSSCORR_STATIONS_SUBSET = config.get('cross-correlation', 'CROSSCORR_STATIONS_SUBSET')
 CROSSCORR_STATIONS_SUBSET = json.loads(CROSSCORR_STATIONS_SUBSET)
+CROSS_STATIONS_DELETE = config.get('cross-correlation', 'CROSS_STATIONS_DELETE')
+CROSS_STATIONS_DELETE = json.loads(CROSS_STATIONS_DELETE)
 
 # locations to skip
 CROSSCORR_SKIPLOCS = json.loads(config.get('cross-correlation', 'CROSSCORR_SKIPLOCS'))

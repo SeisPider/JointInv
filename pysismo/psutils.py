@@ -81,7 +81,7 @@ def get_fill(st, starttime=None, endtime=None):
     stend = max(tr.stats.endtime for tr in st)
     dttot = (stend if not endtime else endtime) - \
             (ststart if not starttime else starttime)
-    gaps = st.getGaps()
+    gaps = st.get_gaps()
 
     fill = 1.0
     if starttime:

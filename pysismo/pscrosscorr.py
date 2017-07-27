@@ -11,6 +11,7 @@ import obspy.xseed
 import obspy.signal.cross_correlation
 import obspy.signal.filter
 from obspy.signal.invsim import simulate_seismometer
+from obspy.io.sac.sacpz import attach_paz, attach_resp
 from obspy.core import AttribDict, read, UTCDateTime, Trace
 from obspy.signal.invsim import cosTaper
 import numpy as np
@@ -2318,7 +2319,8 @@ def get_merged_trace(station, date, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL
     return trace
 
 
-def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=()):
+def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=(),
+                           resp_file_path=None):
     """
     Returns or attach instrumental response, from dataless seed inventories
     (as returned by psstation.get_dataless_inventories()) and/or StationXML
@@ -2337,7 +2339,19 @@ def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=()):
     @param xml_inventories: inventories from StationXML files (as returned by
                             psstation.get_stationxml_inventories())
     @type xml_inventories: list of L{obspy.station.inventory.Inventory}
+    @type resp_file_path: dictionary of response file path
     """
+    if resp_file_path:
+        try:
+            # try to attach response from SACPZ file
+            attach_paz(trace, resp_file_path[trace.id], tovel=True)
+        except pserrors.NoPAZFound:
+            # try to attach response from SACPZ file
+            try:
+                attach_resp(trace, resp_file_path[trace.id], tovel=True)
+            except:
+                # no response found!
+                raise pserrors.CannotPreprocess("No response found")
 
     # looking for instrument response...
     try:
@@ -2363,7 +2377,7 @@ def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=()):
                 raise pserrors.CannotPreprocess("No response found")
 
 
-def preprocess_trace(trace, paz=None,resp_filelist=None,
+def preprocess_trace(trace, paz=None,resp_file_path=None,
                      freqmin=FREQMIN, freqmax=FREQMAX,
                      freqmin_earthquake=FREQMIN_EARTHQUAKE,
                      freqmax_earthquake=FREQMAX_EARTHQUAKE,
@@ -2411,47 +2425,20 @@ def preprocess_trace(trace, paz=None,resp_filelist=None,
     # ============================================
     # Removing instrument response, mean and trend
     # ============================================
-
-    # downsampling trace if not already done
-    if abs(1.0 / trace.stats.sampling_rate - period_resample) > EPS:
-        psutils.resample(trace, dt_resample=period_resample)
-
+    tstart = dt.datetime.now()
     # removing response...
-    if paz:
+
+    if paz or resp_file_path:
         # ...using paz:
         if trace.stats.sampling_rate > 10.0:
             # decimating large trace, else fft crashes
             factor = int(np.ceil(trace.stats.sampling_rate / 10))
             trace.decimate(factor=factor, no_filter=True)
         trace.simulate(paz_remove=paz,
-                       paz_simulate=obspy.signal.cornFreq2Paz(0.01),
+                       paz_simulate=obspy.signal.invsim.corn_freq_2_paz(0.01),
                        remove_sensitivity=True,
                        simulate_sensitivity=True,
                        nfft_pow2=True)
-    elif resp_filelist:
-        # ...using RESP files:
-        # Here set up a function to remove instrumental response(line 2524)
-        # following this function
-        # set the freqmin as freqcora and max as freqcorb
-        # set the filter period region
-        freqcora = freqmin
-        freqcorb = freqmax
-        freq_min_RESP = freqmin-0.001
-        freq_max_RESP = freqmax+5
-
-        if USE_COMBINATION_RESP:
-            logger.info("The RESP files are useful!")
-            #RESP_remove_response(trace,resp_filelist,freq_min_RESP,
-            #                      freqcora,freqcorb,freq_max_RESP)
-            #print "However,they are not used!"
-        else:
-            # ...using SACPZ files:
-            # Here set up a function to remove instrumental response
-            # following this function
-            # set the freqmin as freqcora and max as freqcorb
-            logger.info("SACPZ files are useful")
-            SACPZ_remove_response(trace,resp_filelist,freqmin,freqcora,freqcorb,freqmax)
-
     else:
         # ...using StationXML:
         # first band-pass to downsample data before removing response
@@ -2488,10 +2475,11 @@ def preprocess_trace(trace, paz=None,resp_filelist=None,
                  corners=corners,
                  zerophase=zerophase)
 
-
+    logger.info(colored("Fundamental preprocess {}".format(dt.datetime.now()-tstart), 'red'))
     # ==================
     # Time normalization
     # ==================
+    tstart = dt.datetime.now()
     if onebit_norm:
         # one-bit normalization
         trace.data = np.sign(trace.data)
@@ -2525,7 +2513,9 @@ def preprocess_trace(trace, paz=None,resp_filelist=None,
 
         # time-normalization
         trace.data /= tnorm_w
+        logger.info(colored("time normalization {}".format(dt.datetime.now()-tstart), 'red'))
 
+        tstart = dt.datetime.now()
         # ==================
         # Spectral whitening
         # ==================
@@ -2546,6 +2536,7 @@ def preprocess_trace(trace, paz=None,resp_filelist=None,
     # Verifying that we don't have nan in trace data
     if np.any(np.isnan(trace.data)):
         raise pserrors.CannotPreprocess("Got NaN in trace data")
+    logger.info(colored("spectral normalization {}".format(dt.datetime.now()-tstart), 'red'))
 
 def RESP_remove_response(trace,resp_filelist,freqmin,freqcora,freqcorb,freqmax):
     """
@@ -2594,8 +2585,8 @@ def RESP_remove_response(trace,resp_filelist,freqmin,freqcora,freqcorb,freqmax):
             logger.info("Instrument response has been removed")
             return trace
 
-
-def SACPZ_remove_response(trace,resp_filelist,freqmin,freqcora,freqcorb,freqmax):
+def SACPZ_remove_response(trace, resp_filelist, freqmin, freqcora,
+                          freqcorb, freqmax, verbose=False):
     """
     remove instrument response with SACPZ files
 
@@ -2610,33 +2601,33 @@ def SACPZ_remove_response(trace,resp_filelist,freqmin,freqcora,freqcorb,freqmax)
     channel_name = trace.stats.channel
 
     if not (trace and resp_filelist):
-        logger.rorr("No trace or SACPZ files!")
+        logger.erorr("No trace or SACPZ files!")
         return
     # find resp file corresponding to this trace
     # output POLEZERO file number
-    s = "{} POLEZERO FILES FOUND".format(len(resp_filelist))
-    logger.info(s)
-    for resp_file in resp_filelist:
-        Exist = re.search(station_name,str(resp_file)) and re.search(channel_name, \
-                    str(resp_file))
-        if Exist:
-            # define a filter band to prevent amplifying noise during the
-            # deconvolution
-            pre_filt = [freqmin,freqcora,freqcorb,freqmax]
+    if verbose:
+        s = "{} POLEZERO FILES FOUND".format(len(resp_filelist))
+        logger.info(s)
 
-            if os.path.isfile(resp_file):
-                logger.info("SACPZ file {0} Exists".format(resp_file))
-            else:
-                logger.info("No SACPZ file {} Exist".format(resp_file))
+    responseid = ".".join([trace.stats.network, trace.stats.station,
+                           trace.stats.channel])
+    try:
+        resp_file = resp_filelist[responseid]
+    except:
+        logger.error("No Response File for {}".format(responseid))
+        return None
 
-            paz_remove = Get_paz_remove(filename=resp_file)
-            df = trace.stats.sampling_rate
-            # add a function to Read SACPZ file
-            trace.data = simulate_seismometer(trace.data, df, paz_remove=paz_remove,
+    # remove instrument response
+    pre_filt = [freqmin,freqcora,freqcorb,freqmax]
+    paz_remove = Get_paz_remove(filename=resp_file)
+    df = trace.stats.sampling_rate
+    # add a function to Read SACPZ file
+    trace.data = simulate_seismometer(trace.data, df, paz_remove=paz_remove,
                                               pre_filt=pre_filt)
-            s = "{} Instrument response has been removed".format(station_name)
-            logger.info(s)
-            return trace
+    s = "{} Instrument response has been removed".format(station_name)
+    logger.info(s)
+    return trace
+
 
 def Get_paz_remove(filename=None):
     """
@@ -2676,7 +2667,6 @@ def Get_paz_remove(filename=None):
     instrument = {'gain': gain, 'poles': poles, 'sensitivity': sensitivity,
                   'zeros': zeros}
     XJ_file.close()
-
     return instrument
 
 def load_pickled_xcorr(pickle_file):

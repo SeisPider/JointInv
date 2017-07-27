@@ -317,7 +317,7 @@ def get_stationxml_inventories(stationxml_dir=STATIONXML_DIR, verbose=False):
 
     for f in flist:
         if verbose:
-            print(os.path.basename(f), end="")
+            print(os.path.basename(f))
         inv = read_inventory(f, format='stationxml')
         inventories.append(inv)
 
@@ -351,36 +351,34 @@ def get_RESP_filelists(resp_filepath=RESP_DIR, verbose=True):
 
     return resp_filepath
 
-def get_PZ_filelists(resp_filepath=SACPZ_DIR, verbose=True):
+def get_SACPZ_filelists(resp_filepath=SACPZ_DIR, verbose=True):
     """
     Reads response given by RESP files whose names organized as
     <year>.SAC.PZS.<network>.<station>.<channel>
     e.g:2016.SAC.PZS.XJ.AKS.BHZ
     """
-    resp_filepath = []
+    resp_filepath = {}
 
     # list of SAC_PZ files
-    flist = glob.glob(pathname=os.path.join(SAC_PZ_DIR,"*SAC.PZS*"))
+    flist = glob.glob(pathname=os.path.join(SACPZ_DIR,"*.sacpz"))
 
     if verbose:
         if flist:
             logger.info("Scanning SAC PZ files")
         else:
-            s = u"Could not find any SAC PZ file (*SAC.PZS*) in dir:{}!"
-            logger.info(s.format(SAC_PZ_DIR))
+            s = u"Could not find any SAC PZ file (*sacpz) in dir:{}!"
+            logger.info(s.format(SACPZ_DIR))
 
     for f in flist:
+        net, sta, loc, chn = os.path.basename(f).split('.')[:-1]
+        responseid = ".".join([net, sta, "", chn])
+        single_file = {responseid: f}
         if verbose:
-            print(os.path.basename(f))
-        resp_filepath.append(SAC_PZ_DIR+str(f))
-
+            print(responseid, os.path.basename(f))
+        resp_filepath.update(single_file)
     if flist and verbose:
         logger.info("SAC PZ files scanning finished Suc!")
-
     return resp_filepath
-
-
-
 
 def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
     """
@@ -408,7 +406,6 @@ def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
             print(os.path.basename(f))
         inv = obspy.xseed.Parser(f)
         inventories.append(inv)
-
     # list of *.pickle files
     flist = glob.glob(pathname=os.path.join(dataless_dir, "*.pickle"))
 
@@ -417,7 +414,7 @@ def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
 
     for f in flist:
         if verbose:
-            print (os.path.basename(f), end="")
+            print (os.path.basename(f))
         f = open(f, 'rb')
         inventories.extend(pickle.load(f))
         f.close()
@@ -426,6 +423,7 @@ def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
         print
 
     return inventories
+
 
 
 def get_paz(channelid, t, inventories):

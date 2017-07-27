@@ -33,18 +33,20 @@ import .psutils
 from .pscrosscorr import Get_paz_remove, FTAN
 
 from .psconfig import (PERIOD_RESAMPLE, FTAN_ALPHA)
+
+
 class TsEvnt(object):
     """
     Hashable class holding imformation of matched stations and earthquakes
     which contains:
-    - a pair of stations
-    - a pair of sets of locations
-    - a pair of ids
+    - pairs of stations
+    - pairs of waveforms
     """
-    def __init__(self, catalog, refdispersion):
+    def __init__(self, catalog, refdispersion, periods):
         # import catalog
         self.events = self._read_catalog(catalog)
         self.refdisp = self._read_dispers(refdispersion)
+        self.periods = periods
 
     def matchtsevnt(self, client):
         """
@@ -204,7 +206,7 @@ class TsEvnt(object):
                                        })
 
 
-    def isolate_rayleigh_train(self, periods, alpha=FTAN_ALPHA):
+    def isolate_rayleigh_train(self, alpha=FTAN_ALPHA):
         """
         isolate rayleigh train with variable width movement window
 
@@ -218,56 +220,87 @@ class TsEvnt(object):
         for sta_pair in self.tseventdata:
 
 
-def staspair_process(sta_pair, periods, alpha, shift_len=500):
-    """
-    estimate raw group velocity dispersion curves with FTAN and cross-correlation
-    technique
+    def staspair_process(self, sta_pair, alpha, shift_len=500):
+        """
+        estimate raw group velocity dispersion curves with FTAN and
+        cross-correlation technique
 
-    1. apply FTAN method on each traces and return amplitude time series of
-       analytical signal
-    2. estimate inter-station group velocity  of various periods via
-       cross-correlation of analytical signal
-    """
-    logger.info("processing station pair %s", str(list(sta_pair.keys())[0]))
-    # initialization amplitude/phase matrix: each column = amplitude
-    # function of time for a given Faussian filter centered around a period
-    tr1 = list(sta_pair.values())[0]['sta1']
-    tr2 = list(sta_pair.values())[0]['sta2']
+        1. apply FTAN method on each traces and return amplitude time series of
+           analytical signal
+        2. estimate inter-station group velocity  of various periods via
+           cross-correlation of analytical signal
+        """
+        logger.info("processing station pair %s", str(list(sta_pair.keys())[0]))
+        # initialization amplitude/phase matrix: each column = amplitude
+        # function of time for a given Faussian filter centered around a period
+        tr1 = list(sta_pair.values())[0]['sta1']
+        tr2 = list(sta_pair.values())[0]['sta2']
 
-    # measure dispersion curves of group velocity
-    reftime1, group_arr1 = measure_group_arrival(tr1, periods, alpha)
-    reftime2, group_arr2 = measure_group_arrival(tr2, periods, alpha)
-    if reftime1 != reftime2:
-        logger.error("ReferenceTimeNotMatch")
-        return None
-    if not group_arr1 or not group_arr2:
-        logger.error("defeatly obtain arrival of group wave")
-        return None
-    reftime = reftime1
-
-
-    # apply isolation in time domain
-    isotr1 = movement_windows_construction(tr1, periods, group_arr1, reftime1)
-    isotr2 = movement_windows_construction(tr2, periods, group_arr2, reftime2)
-
-    # filter traces separately based on kaiser windowed FIR filter
-    filttr1 = kaiser_windows_filter(tr1, isotr1, periods)
-    filttr2 = kaiser_windows_filter(tr2, isotr2, periods)
-
-    # apply cross-correlation technique and transfer period-delay
-    # cross-correlation functions matrix to period-velocity matrix
-    vmatrix = intersta_t_v_construct(tr1, tr2, filttr1, filttr2)
+        # measure dispersion curves of group velocity
+        reftime1, group_arr1 = measure_group_arrival(tr1, self.periods, alpha)
+        reftime2, group_arr2 = measure_group_arrival(tr2, self.periods, alpha)
+        if reftime1 != reftime2:
+            logger.error("ReferenceTimeNotMatch")
+            return None
+        if not group_arr1 or not group_arr2:
+            logger.error("defeatly obtain arrival of group wave")
+            return None
+        reftime = reftime1
 
 
-    # extrct the dispersion curves
+        # apply isolation in time domain
+        isotr1 = movement_windows_construction(tr1, self.periods, group_arr1,
+                                               reftime1)
+        isotr2 = movement_windows_construction(tr2, self.periods, group_arr2,
+                                               reftime2)
 
-def extract_dispersion_curves(tr1, tr2, vmatrix):
-    """
-    extract dispersion curves from period-velocity matrix
-    """
+        # filter traces separately based on kaiser windowed FIR filter
+        filttr1 = kaiser_windows_filter(tr1, isotr1, self.periods)
+        filttr2 = kaiser_windows_filter(tr2, isotr2, self.periods)
+
+        # apply cross-correlation technique and transfer period-delay
+        # cross-correlation functions matrix to period-velocity matrix
+        vmatrix = intersta_t_v_construct(tr1, tr2, filttr1, filttr2)
 
 
-def intersta_t_v_construct(tr1, tr2, filttr1, filttr2):
+        # extrct the dispersion curves
+        if not vmatrix:
+            if verbose:
+                logger.error("error in period velocity matrix construction")
+            return None
+
+
+    def extract_dispersion_curves(self, tr1, tr2, vmatrix, veloscale):
+        """
+        extract dispersion curves from period-velocity matrix
+
+        1. choose the reference point and find out whether its tracked local
+           maxmimum is global maximum
+        """
+        refperiod = self.periods[-1]
+        # initiate the reference point
+        for period, refvc in self.refdisp:
+            if refperiod == period:
+                veloltref = veloscale[veloscale < refvc]
+                # due to the veloscale if incretement, thus
+                # we can obtain its index
+                locindex = len(veloltref) -1
+        refpoint = (refperiod, veloltref[-1], locindex)
+
+        # find the local maximum
+        maximum_index = vmatrix[len(self.periods), :].armax()
+        maxpoint = (refperiod, vmatrix[len(self.periods), maximum_index])
+
+    def maximum_tracking(self, search_point, tvcvector, veloscale):
+        """
+        tracking local maximum with starting from search point
+        """
+        period, velo, locindex = search_point
+
+
+
+
+def intersta_t_v_construct(tr1, tr2, filttr1, filttr2, deltav=0.01):
     """
     construct inter-station period-velocity matrix
 
@@ -373,7 +406,7 @@ def trace_process(tr, client, period_resample=1, frmin=0.0067, frcora=0.007,
     Preprocess single trace including instrument response removal,
     demeaningm and detrending
 
-    @type trace: trace
+    @type trace: obspy trace
     @type resp_filist: list of strings
     @type frmin: float
     @type frcora: float
