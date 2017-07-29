@@ -2345,6 +2345,7 @@ def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=(),
         try:
             # try to attach response from SACPZ file
             attach_paz(trace, resp_file_path[trace.id], tovel=True)
+            return None
         except pserrors.NoPAZFound:
             # try to attach response from SACPZ file
             try:
@@ -2384,7 +2385,8 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
                      corners=CORNERS, zerophase=ZEROPHASE,
                      period_resample=PERIOD_RESAMPLE,
                      onebit_norm=ONEBIT_NORM,
-                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ):
+                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ,
+                     verbose=False):
     """
     Preprocesses a trace (so that it is ready to be cross-correlated),
     by applying the following steps:
@@ -2427,13 +2429,15 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
     # ============================================
     tstart = dt.datetime.now()
     # removing response...
-
     if paz or resp_file_path:
         # ...using paz:
-        if trace.stats.sampling_rate > 10.0:
-            # decimating large trace, else fft crashes
-            factor = int(np.ceil(trace.stats.sampling_rate / 10))
-            trace.decimate(factor=factor, no_filter=True)
+        trace.filter(type="bandpass",
+                     freqmin=freqmin,
+                     freqmax=freqmax,
+                     corners=corners,
+                     zerophase=zerophase)
+        psutils.resample(trace, dt_resample=period_resample)
+
         trace.simulate(paz_remove=paz,
                        paz_simulate=obspy.signal.invsim.corn_freq_2_paz(0.01),
                        remove_sensitivity=True,
@@ -2452,7 +2456,8 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
         trace.remove_response(output="VEL", zero_mean=True)
 
     # trimming, demeaning, detrending
-    midt = trace.stats.starttime + (trace.stats.endtime - trace.stats.starttime) / 2.0
+    midt = trace.stats.starttime + (trace.stats.endtime -
+                                    trace.stats.starttime) / 2.0
     t0 = UTCDateTime(midt.date)  # date of trace, at time 00h00m00s
     trace.trim(starttime=t0, endtime=t0 + dt.timedelta(days=1))
     trace.detrend(type='constant')
@@ -2474,8 +2479,8 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
                  freqmax=freqmax,
                  corners=corners,
                  zerophase=zerophase)
-
-    logger.info(colored("Fundamental preprocess {}".format(dt.datetime.now()-tstart), 'red'))
+    if verbose:
+        logger.info(colored("Fundamental preprocess {}".format(dt.datetime.now()-tstart),'red'))
     # ==================
     # Time normalization
     # ==================
@@ -2513,7 +2518,8 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
 
         # time-normalization
         trace.data /= tnorm_w
-        logger.info(colored("time normalization {}".format(dt.datetime.now()-tstart), 'red'))
+        if verbose:
+            logger.info(colored("time normalization {}".format(dt.datetime.now()-tstart), 'red'))
 
         tstart = dt.datetime.now()
         # ==================
@@ -2536,7 +2542,8 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
     # Verifying that we don't have nan in trace data
     if np.any(np.isnan(trace.data)):
         raise pserrors.CannotPreprocess("Got NaN in trace data")
-    logger.info(colored("spectral normalization {}".format(dt.datetime.now()-tstart), 'red'))
+    if verbose:
+        logger.info(colored("spectral normalization {}".format(dt.datetime.now()-tstart), 'red'))
 
 def RESP_remove_response(trace,resp_filelist,freqmin,freqcora,freqcorb,freqmax):
     """

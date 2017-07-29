@@ -106,6 +106,7 @@ from termcolor import colored
 MULTIPROCESSING = {'merge trace': False,
                    'process trace': True,
                    'cross-corr': True}
+VERBOSE = False
 # how many concurrent processes? (set None to let multiprocessing module decide)
 NB_PROCESSES = None
 if any(MULTIPROCESSING.values()):
@@ -173,7 +174,8 @@ OUTBASENAME_PARTS = [
 OUTFILESPATH = os.path.join(CROSSCORR_DIR, '_'.join(p for p in OUTBASENAME_PARTS if p))
 msg = 'Default name of output files (without extension):\n"{}"\n'.format(OUTFILESPATH)
 logger.info(msg)
-#suffix = raw_input("Enter suffix to append: [none]\n")
+
+# import arguments
 suffix=sys.argv[1]
 if suffix:
     OUTFILESPATH = '{}_{}'.format(OUTFILESPATH, suffix)
@@ -245,7 +247,9 @@ logger.info(colored("ALL {} stations".format(str(len(stations))),'green'))
 # Initializing collection of cross-correlations
 xc = pscrosscorr.CrossCorrelationCollection()
 
-logger.info(colored("Initialization time {}".format(dt.datetime.now() - tstart), 'red'))
+if VERBOSE:
+    logger.info(colored("Initialization time {}".format(dt.datetime.now() - tstart),
+                        'red'))
 # Loop on day
 nday = (LASTDAY - FIRSTDAY).days + 1
 dates = [FIRSTDAY + dt.timedelta(days=i) for i in range(nday)]
@@ -345,8 +349,7 @@ for date in dates:
             trace = None
             msg = 'Unhandled error: {}'.format(err)
             # printing output (error or ok) message
-        logger.error('{}.{} [{}] '.format(network, station, msg))
-
+            logger.error('{}.{} [{}] '.format(network, station, msg))
         # although processing is performed in-place, trace is returned
         # in order to get it back after multi-processing
         return trace
@@ -401,10 +404,10 @@ for date in dates:
         responses.append(response)
         if errmsg:
             # printing error message
-            print('{}.{} [{}] '.format(tr.stats.network, tr.stats.station,
+            logger.error('{}.{} [{}] '.format(tr.stats.network, tr.stats.station,
                                                                 errmsg))
-
-    logger.info(colored("import data {}".format(dt.datetime.now() - t0), 'red'))
+    if VERBOSE:
+        logger.info(colored("import data {}".format(dt.datetime.now() - t0), 'red'))
     t0 = dt.datetime.now()
     # =================
     # processing traces
@@ -421,12 +424,11 @@ for date in dates:
             traces = [preprocessed_trace(tr, res)
                                  for tr, res in list(zip(traces, responses))]
     else:
-        responses = []
         if MULTIPROCESSING['process trace']:
             #multiprocess truned on: one process per station
-            print("MULTIPROCESSING")
+            logger.info("MULTIPROCESSING")
             pool = mp.Pool(NB_PROCESSES)
-            traces = pool.starmap(preprocessed_trace,list(zip(traces, it.repeat(responses), it.repeat(resp_file_path))))
+            traces = pool.starmap(preprocessed_trace,list(zip(traces, responses, it.repeat(resp_file_path))))
             pool.close()
             pool.join()
         else:
@@ -437,16 +439,18 @@ for date in dates:
     tracedict = {s.name: trace for s, trace in zip(month_stations, traces) if trace}
 
     delta = (dt.datetime.now() - t0).total_seconds()
-    print("\nProcessed stations in {:.1f} seconds".format(delta))
+    logger.info(colored("Processed stations in {:.1f} seconds".format(delta), 'green'))
 
     # ==============================================
     # stacking cross-correlations of the current day
     # ==============================================
 
     if len(tracedict) < 2:
-        print("No cross-correlation for this day")
+        logger.error("No cross-correlation for this day")
         continue
-    logger.info(colored("trace preprocess {}".format(dt.datetime.now() - t0), 'red'))
+    if VERBOSE:
+        logger.info(colored("trace preprocess {}".format(dt.datetime.now() - t0),
+                            'red'))
 
     t0 = dt.datetime.now()
     xcorrdict = {}
@@ -454,7 +458,7 @@ for date in dates:
         # if multiprocessing is turned on, we pre-calculate cross-correlation
         # arrays between pairs of stations (one process per pair) and feed
         # them to xc.add() (which won't have to recalculate them)
-        print("Pre-calculating cross-correlation arrays")
+        logger.info("Pre-calculating cross-correlation arrays")
 
         def xcorr_func(pair):
             """
@@ -462,7 +466,7 @@ for date in dates:
             beween two traces
             """
             (s1, tr1), (s2, tr2) = pair
-            print('{}-{} '.format(s1, s2))
+            logger.info('{}-{} '.format(s1, s2))
             shift = int(CROSSCORR_TMAX / PERIOD_RESAMPLE)
             xcorr = obspy.signal.cross_correlation.correlate(
                 tr1, tr2, shift=shift)
@@ -474,7 +478,6 @@ for date in dates:
         pool.close()
         pool.join()
         xcorrdict = {(s1, s2): xcorr for ((s1, _), (s2, _)), xcorr in zip(pairs, xcorrs)}
-        print()
 
     logger.info("Stacking cross-correlations")
     xc.add(tracedict=tracedict,
@@ -495,8 +498,8 @@ else:
     # exporting to binary and ascii files
     xc.export(outprefix=OUTFILESPATH, stations=stations, verbose=True)
 
-logger.info(colored("after stacking process {}".format(dt.datetime.now() - t0), 'red'))
-logger.info(colored("whole process {}".format(dt.datetime.now() - tstart), 'red'))
+logger.info(colored("After stacking process {}".format(dt.datetime.now() - t0), 'red'))
+logger.info(colored("Second / month * pair {}".format(dt.datetime.now() - tstart), 'red'))
 # removing file containing periodical exports of cross-corrs
 try:
     os.remove('{}.part.pickle'.format(OUTFILESPATH))

@@ -182,7 +182,7 @@ CROSSCORR_SKIPLOCS = ["50"]
 
 PERIODMIN = 3.0                     
 # bandpass parameters
-PERIODMAX = 60.0
+PERIODMAX = 120.0
 CORNERS = 2
 ZEROPHASE = True
 PERIOD_RESAMPLE = 1.0               
