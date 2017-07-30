@@ -18,7 +18,8 @@ import numpy as np
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================
-from .psconfig import MSEED_DIR, STATIONXML_DIR, DATALESS_DIR, RESP_DIR, SACPZ_DIR
+from .psconfig import (MSEED_DIR, STATIONXML_DIR, DATALESS_DIR, RESP_DIR,
+                  SACPZ_DIR, STATIONINFO_DIR, NETWORKS_SUBSET, CHANNELS_SUBSET)
 from .global_var import logger
 
 class Station:
@@ -72,7 +73,7 @@ class Station:
         @type date: L{UTCDateTime} or L{datetime} or L{date}
         @rtype: unicode
         """
-        subdir = '{y:04d}-{m:02d}'.format(y=date.year, m=date.month)
+        subdir = date.strftime("%Y%m%d")
         if not subdir in self.subdirs:
             s = 'No data for station {s} at date {d}!!'
             raise Exception(s.format(s=self.name, d=date.date))
@@ -190,8 +191,8 @@ def get_stats(filepath, channel='BHZ', fast=True):
 
 
 def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(),
-                 networks=None, startday=None, endday=None, coord_tolerance=1E-4,
-                 verbose=True):
+                 database=False, networks=NETWORKS_SUBSET, channels=CHANNELS_SUBSET,
+                 startday=None, endday=None, coord_tolerance=1E-4, verbose=True):
     """
     Gets the list of stations from miniseed files, and
     extracts information from StationXML and dataless
@@ -210,21 +211,26 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
 
     # initializing list of stations by scanning name of miniseed files
     stations = []
-    files = psutils.filelist(mseed_dir, ext='mseed', subdirs=True)
+
+    files = psutils.filelist(mseed_dir, startday=startday, endday=endday,
+                             ext='mseed', subdirs=True)
     for f in files:
         # splitting subdir/basename
-        subdir, filename = os.path.split(f)
-        # subdir = e.g., 1990-03
-        year, month = int(subdir.split('-')[0]), int(subdir.split('-')[1])
+        subdir, rawfilename = os.path.split(f)
+        # subdir = e.g., 20160806
+        year, month, date = int(subdir[0:4]), int(subdir[4:6]), int(subdir[6:8])
         # checking that month is within selected intervals
         if startday and (year, month) < (startday.year, startday.month):
             continue
         if endday and (year, month) > (endday.year, endday.month):
             continue
             # network, station name and station channel in basename,
-        # e.g., BL.CACB.BHZ.mseed
-        network, name, channel = filename.split('.')[0:3]
+        # e.g., BL.CACB.LOC.BHZ.*.mseed
+        network, name, loc, channel = rawfilename.split('.')[0:4]
+        filename = ".".join([network, name, loc, channel, "*",  "mseed"])
         if networks and network not in networks:
+            continue
+        if channels and channel not in channels:
             continue
 
         # looking for station in list
@@ -240,12 +246,16 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
             # appending subdir to list of subdirs of station
             station.subdirs.append(subdir)
 
+
     if verbose:
         logger.info('Found {0} stations'.format(len(stations)))
 
     # adding lon/lat of stations from inventories
     if verbose:
         print ("Inserting coordinates to stations from inventories")
+
+    if database:
+        stationinfo = get_station_database(stationinfo_dir=STATIONINFO_DIR)
 
     for sta in copy(stations):
         # coordinates of station in dataless inventories
@@ -257,6 +267,13 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
         coords_set = coords_set.union((s.longitude, s.latitude) for inv in xml_inventories
                                       for net in inv for s in net.stations
                                       if net.code == sta.network and s.code == sta.name)
+
+        # coordinates of station in database
+        stationid = ".".join([sta.network,sta.name])
+        try:
+            coords_set = [(stationinfo[stationid]['stlo'], stationinfo[stationid]['stla'])]
+        except KeyError:
+            coords_set = ()
 
         if not coords_set:
             # no coords found: removing station
@@ -290,9 +307,32 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
                          "within tolerance (max lon diff = {}, max lat diff = {})")
                     logger.info(s.format(repr(sta), maxdiff_lon, maxdiff_lat))
                 stations.remove(sta)
-
     return stations
 
+def get_station_database(stationinfo_dir=STATIONINFO_DIR, verbose=False):
+    """
+    Reads station location information
+
+    @type stationinfo_dir: unicode or str
+
+    Format of station information:
+
+            NET.STA  latitude  longitude  elevation
+    """
+    stations = {}
+    with open(stationinfo_dir, "r") as f:
+        for line in f:
+            name, stla, stlo, stel = line.split()[0:4]
+            station = { name :
+                        {
+                       "stla": float(stla),
+                       "stlo": float(stlo),
+                       "stel": float(stel)
+                        }
+                       }
+            stations.update(station)
+    logger.info("%d stations found.", len(stations))
+    return stations
 
 def get_stationxml_inventories(stationxml_dir=STATIONXML_DIR, verbose=False):
     """
@@ -357,28 +397,28 @@ def get_SACPZ_filelists(resp_filepath=SACPZ_DIR, verbose=True):
     <year>.SAC.PZS.<network>.<station>.<channel>
     e.g:2016.SAC.PZS.XJ.AKS.BHZ
     """
-    resp_filepath = {}
+    resp_file_path = {}
 
     # list of SAC_PZ files
-    flist = glob.glob(pathname=os.path.join(SACPZ_DIR,"*.sacpz"))
+    flist = glob.glob(pathname=os.path.join(resp_filepath, "SAC_PZs*"))
 
     if verbose:
         if flist:
             logger.info("Scanning SAC PZ files")
         else:
-            s = u"Could not find any SAC PZ file (*sacpz) in dir:{}!"
-            logger.info(s.format(SACPZ_DIR))
+            s = u"Could not find any SAC PZ file (SAC_PZs_) in dir:{}!"
+            logger.info(s.format(resp_filepath))
 
     for f in flist:
-        net, sta, loc, chn = os.path.basename(f).split('.')[:-1]
-        responseid = ".".join([net, sta, "", chn])
+        net, sta, chn, loc = os.path.basename(f).split('_')[2:6]
+        responseid = ".".join([net, sta, loc, chn])
         single_file = {responseid: f}
         if verbose:
             print(responseid, os.path.basename(f))
-        resp_filepath.update(single_file)
+        resp_file_path.update(single_file)
     if flist and verbose:
         logger.info("SAC PZ files scanning finished Suc!")
-    return resp_filepath
+    return resp_file_path
 
 def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
     """

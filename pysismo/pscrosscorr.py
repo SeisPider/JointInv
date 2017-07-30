@@ -13,7 +13,7 @@ import obspy.signal.filter
 from obspy.signal.invsim import simulate_seismometer
 from obspy.io.sac.sacpz import attach_paz, attach_resp
 from obspy.core import AttribDict, read, UTCDateTime, Trace
-from obspy.signal.invsim import cosTaper
+from obspy.signal.invsim import cosine_taper
 import numpy as np
 from numpy.fft import rfft, irfft, fft, ifft, fftfreq
 from scipy import integrate
@@ -250,7 +250,14 @@ class CrossCorrelation:
             raise pserrors.NaNError(s.format(tr1=tr1, tr2=tr2))
 
         # stacking cross-corr
-        self.dataarray += xcorr
+        try:
+            self.dataarray += xcorr
+        except ValueError:
+            if len(self.dataarray) > len(xcorr):
+                self.dataarray[:-1] += xcorr
+            else:
+                self.dataarray += xcorr[:-1]
+
         # updating stats: 1st day, last day, nb of days of cross-corr
         startday = (tr1.stats.starttime + ONESEC).date
         self.startday = min(self.startday, startday) if self.startday else startday
@@ -267,7 +274,14 @@ class CrossCorrelation:
             # appending new month xc
             monthxc = MonthCrossCorrelation(month=month, ndata=len(self.timearray))
             self.monthxcs.append(monthxc)
-        monthxc.dataarray += xcorr
+        # stacking cross-corr
+        try:
+            monthxc.dataarray += xcorr
+        except ValueError:
+            if len(monthxc.dataarray) > len(xcorr):
+                monthxc.dataarray[:-1] += xcorr
+            else:
+                monthxc.dataarray += xcorr[:-1]
         monthxc.nday += 1
 
         # updating (adding) locs and ids
@@ -693,7 +707,7 @@ class CrossCorrelation:
                         s="Signal window",
                         horizontalalignment='center',
                         fontsize=8,
-                        bbox={'color': 'k', 'facecolor': 'white'})
+                        bbox={'facecolor': 'white'})
 
                 # adding label to noise windows
                 ax.text(x=sum(tnoise) / 2,
@@ -1290,7 +1304,7 @@ class CrossCorrelation:
         x = (xlim[0] + xlim[1]) / 2.0
         y = ylim[0] + 0.05 * (ylim[1] - ylim[0])
         ax.text(x, y, "Raw FTAN", fontsize=12,
-                bbox={'color': 'k', 'facecolor': 'white', 'lw': 0.5},
+                bbox={'facecolor': 'white', 'lw': 0.5},
                 horizontalalignment='center',
                 verticalalignment='center')
         ax.set_xlim(xlim)
@@ -1342,7 +1356,7 @@ class CrossCorrelation:
         x = (xlim[0] + xlim[1]) / 2.0
         y = ylim[0] + 0.05 * (ylim[1] - ylim[0])
         ax.text(x, y, "Clean FTAN", fontsize=12,
-                bbox={'color': 'k', 'facecolor': 'white', 'lw': 0.5},
+                bbox={'facecolor': 'white', 'lw': 0.5},
                 horizontalalignment='center',
                 verticalalignment='center')
         # plotting cut-off period
@@ -2285,14 +2299,16 @@ def get_merged_trace(station, date, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL
     @param minfill: minimum data fill to keep trace
     @rtype: L{Trace}
     """
-
     # getting station's stream at selected date
     # (+/- one hour to avoid edge effects when removing response)
-    t0 = UTCDateTime(date)  # date at time 00h00m00s
-    st = read(pathname_or_url=station.getpath(date),
-              starttime=t0 - dt.timedelta(hours=1),
-              endtime=t0 + dt.timedelta(days=1, hours=1))
 
+    # Beijing Time and UTC time transformation
+    t0 = UTCDateTime(date)  # date at time 00h00m00s -- Beijing Time
+
+    # subdir with Beijing Time , however time of mseed file  is UTC time
+    st = read(pathname_or_url=station.getpath(date),
+              starttime=t0 - dt.timedelta(hours=8),
+              endtime=t0 + dt.timedelta(days=1))
     # removing traces of stream from locations to skip
     for tr in [tr for tr in st if tr.stats.location in skiplocs]:
         st.remove(tr)
@@ -2308,7 +2324,8 @@ def get_merged_trace(station, date, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL
             st.remove(tr)
 
     # Data fill for current date
-    fill = psutils.get_fill(st, starttime=t0, endtime=t0 + dt.timedelta(days=1))
+    fill = psutils.get_fill(st, starttime=(t0- dt.timedelta(hours=8)),
+                            endtime=t0 + dt.timedelta(hours=16))
     if fill < minfill:
         # not enough data
         raise pserrors.CannotPreprocess("{:.0f}% fill".format(fill * 100))
@@ -2458,8 +2475,9 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
     # trimming, demeaning, detrending
     midt = trace.stats.starttime + (trace.stats.endtime -
                                     trace.stats.starttime) / 2.0
-    t0 = UTCDateTime(midt.date)  # date of trace, at time 00h00m00s
-    trace.trim(starttime=t0, endtime=t0 + dt.timedelta(days=1))
+    t0 = UTCDateTime(midt.date)  # date of trace, at time 00h00m00s - Beijing Time
+    trace.trim(starttime=(t0 - dt.timedelta(hours=8)),
+               endtime=t0 + dt.timedelta(days=16))
     trace.detrend(type='constant')
     trace.detrend(type='linear')
 
@@ -2785,7 +2803,7 @@ def FTAN(x, dt, periods, alpha, phase_corr=None):
         Xa[mask] = np.abs(Xa[mask]) * np.exp(-1j * phi)
 
         # tapering
-        taper = cosTaper(npts=mask.sum(), p=0.05)
+        taper = cosine_taper(npts=mask.sum(), p=0.05)
         Xa[mask] *= taper
         Xa[~mask] = 0.0
 

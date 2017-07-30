@@ -61,7 +61,7 @@ STATIONXML_DIR = config.get('paths', 'STATIONXML_DIR')
 DATALESS_DIR = config.get('paths', 'DATALESS_DIR')
 RESP_DIR = config.get('paths','RESP_DIR')
 SACPZ_DIR = config.get('paths','SACPZ_DIR')
-
+STATIONINFO_DIR = config.get('paths','STATIONINFO_DIR')
 # output dirs
 CROSSCORR_DIR = config.get('paths', 'CROSSCORR_DIR')
 FTAN_DIR = config.get('paths', 'FTAN_DIR')
@@ -104,6 +104,11 @@ CROSSCORR_STATIONS_SUBSET = json.loads(CROSSCORR_STATIONS_SUBSET)
 CROSS_STATIONS_DELETE = config.get('cross-correlation', 'CROSS_STATIONS_DELETE')
 CROSS_STATIONS_DELETE = json.loads(CROSS_STATIONS_DELETE)
 
+NETWORKS_SUBSET = config.get('cross-correlation', 'NETWORKS_SUBSET')
+NETWORKS_SUBSET = json.loads(NETWORKS_SUBSET)
+
+CHANNELS_SUBSET = config.get('cross-correlation', 'CHANNELS_SUBSET')
+CHANNELS_SUBSET = json.loads(CHANNELS_SUBSET)
 # locations to skip
 CROSSCORR_SKIPLOCS = json.loads(config.get('cross-correlation', 'CROSSCORR_SKIPLOCS'))
 

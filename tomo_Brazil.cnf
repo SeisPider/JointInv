@@ -78,11 +78,12 @@
 # RESP.XJ.AKS.BHZ
 #
 #
-MSEED_DIR = ../../Projects/TianShan/MINISEEDData
+MSEED_DIR = /run/media/seispider/Seagate Backup Plus Drive
 STATIONXML_DIR = ../../Projects/TianShan/stationxml_files
 DATALESS_DIR = ../../Projects/TianShan/Dataless seed
 RESP_DIR = ../../Projects/TianShan/RESP_file
 SACPZ_DIR = ../../Projects/China/response/CSNPZ_2016
+STATIONINFO_DIR = ./info/station.info
 
 CROSSCORR_DIR = ./output/cross_correlation 
 # dir of cross-correlation results
@@ -162,14 +163,19 @@ USE_COMBINATION = True
 USE_COMBINATION_RESP = False        
 # Use resp to combination else use sac PZ files
 
-FIRSTDAY = 1/1/2016                 
+FIRSTDAY = 1/5/2016                 
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 1/2/2016                 
+LASTDAY = 1/7/2016                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.99                      
 # minimum data fill within day
+NETWORKS_SUBSET = ["XJ"]
+# constrain network
+CHANNELS_SUBSET = ["BHZ", "SHZ"]
+# constrain channel
+
 
 CROSSCORR_STATIONS_SUBSET = ["ALS", "WMQ"]    
 # subset of stations (null if all, else JSON list)
@@ -188,7 +194,7 @@ ZEROPHASE = True
 PERIOD_RESAMPLE = 1.0               
 # resample period to decimate traces, after band-pass
 
-ONEBIT_NORM = True                 
+ONEBIT_NORM = False                 
 # one-bit normalization?
 PERIODMIN_EARTHQUAKE = 15.0         
 # earthquakes periods band

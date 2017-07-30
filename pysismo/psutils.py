@@ -29,13 +29,14 @@ from .psconfig import CROSSCORR_SKIPLOCS, COAST_SHP, TECTO_SHP, TECTO_LABELS, TE
 wgs84 = pyproj.Geod(ellps='WGS84')
 
 
-def filelist(basedir, ext=None, subdirs=True):
+def filelist(basedir, startday=None, endday=None, ext=None, subdirs=True):
     """
     Returns the list of files in *basedir* (and subdirs if
     *subdirs* is True) whose extendion is *ext*
     """
     # list of files and dirs
     flist = os.listdir(basedir)
+
     files = []
     for f in flist:
         if os.path.isfile(os.path.join(basedir, f)):
@@ -45,6 +46,16 @@ def filelist(basedir, ext=None, subdirs=True):
                 files.append(f)
     if subdirs:
         for d in flist:
+            # filter dirs based on date and reject files
+            if os.path.isfile(os.path.join(basedir, d)):
+                continue
+            year, month, day = int(d[0:4]), int(d[4:6]), int(d[6:8])
+            if startday and (year, month, day) < (startday.year,
+                                                  startday.month, startday.day):
+                continue
+            if endday and (year, month, day) > (endday.year,
+                                                      endday.month, endday.day):
+                continue
             if os.path.isdir(os.path.join(basedir, d)):
                 subdir = os.path.join(basedir, d)
                 sublist = filelist(subdir, ext=ext, subdirs=True)

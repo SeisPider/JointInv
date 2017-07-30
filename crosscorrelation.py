@@ -146,7 +146,6 @@ subset = CROSSCORR_STATIONS_SUBSET
 if subset:
     logger.info("  for stations: {}".format(', '.join(subset)))
 
-
 # ========================================
 # Name of output files (without extension).
 # E.g., "xcorr_2000-2012_xmlresponse"
@@ -211,7 +210,6 @@ if USE_COMBINATION:
     else:
         resp_file_path = psstation.get_SACPZ_filelists(SACPZ_DIR,verbose=False)
 
-
 # Getting list of stations
 # -------------------------------
 # COMP: Using stationxml file to
@@ -220,6 +218,7 @@ if USE_COMBINATION:
 stations_all = psstation.get_stations(mseed_dir=MSEED_DIR,
                                   xml_inventories=xml_inventories,
                                   dataless_inventories=dataless_inventories,
+                                  database=True,
                                   startday=FIRSTDAY,
                                   endday=LASTDAY,
                                   verbose=True)
@@ -233,7 +232,7 @@ if CROSS_STATIONS_DELETE:
 
         Exist = station.name in CROSS_STATIONS_DELETE
         if Exist:
-            logger.info(colored("Delet {} ".format(station.name),'red'))
+            logger.info(colored("Delete {} ".format(station.name),'red'))
             continue
         stations.append(station)
 else:
@@ -253,6 +252,8 @@ if VERBOSE:
 # Loop on day
 nday = (LASTDAY - FIRSTDAY).days + 1
 dates = [FIRSTDAY + dt.timedelta(days=i) for i in range(nday)]
+
+# construct monthly stacking
 for date in dates:
 
     # exporting the collection of cross-correlations after the end of each
@@ -267,12 +268,12 @@ for date in dates:
     logger.info("Processing data of day {}".format(date))
 
     # loop on stations appearing in subdir corresponding to current month
-    month_subdir = '{year}-{month:02d}'.format(year=date.year, month=date.month)
-    month_stations = sorted(sta for sta in stations if month_subdir in sta.subdirs)
+    date_subdir = date.strftime("%Y%m%d")
+    date_stations = sorted(sta for sta in stations if date_subdir in sta.subdirs)
 
     # subset if stations (if provided)
     if CROSSCORR_STATIONS_SUBSET:
-        month_stations = [sta for sta in month_stations
+        date_stations = [sta for sta in date_stations
                           if sta.name in CROSSCORR_STATIONS_SUBSET]
 
     # =============================================================
@@ -303,7 +304,6 @@ for date in dates:
         if errmsg:
             # printing error message
             logger.error('{}.{} [{}] '.format(station.network, station.name, errmsg))
-
         return trace
 
     def preprocessed_trace(trace, response, resp_file_path=None):
@@ -357,18 +357,16 @@ for date in dates:
     # ====================================
     # getting one merged trace per station
     # ====================================
-
     t0 = dt.datetime.now()
     if MULTIPROCESSING['merge trace']:
         # multiprocessing turned on: one process per station
         pool = mp.Pool(NB_PROCESSES)
-        traces = pool.map(get_merged_trace, month_stations)
+        traces = pool.map(get_merged_trace, date_stations)
         pool.close()
         pool.join()
     else:
         # multiprocessing turned off: processing stations one after another
-        traces = [get_merged_trace(s) for s in month_stations]
-
+        traces = [get_merged_trace(s) for s in date_stations]
 
     # =====================================================
     # getting or attaching instrumental response
@@ -384,7 +382,6 @@ for date in dates:
     # dataless inventory, (2) None if response found in StationXML
     # inventory (directly attached to trace) or (3) False if no
     # response found
-
         try:
             response = pscrosscorr.get_or_attach_response(
                 trace=tr,
@@ -436,7 +433,7 @@ for date in dates:
                                 resp_file_path=resp_file_path) for tr in traces]
 
     # setting up dict of current date's traces, {station: trace}
-    tracedict = {s.name: trace for s, trace in zip(month_stations, traces) if trace}
+    tracedict = {s.name: trace for s, trace in zip(date_stations, traces) if trace}
 
     delta = (dt.datetime.now() - t0).total_seconds()
     logger.info(colored("Processed stations in {:.1f} seconds".format(delta), 'green'))
