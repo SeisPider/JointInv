@@ -166,7 +166,7 @@ USE_COMBINATION_RESP = False
 FIRSTDAY = 1/5/2016                 
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 1/7/2016                 
+LASTDAY = 1/6/2016                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.99                      
@@ -177,9 +177,9 @@ CHANNELS_SUBSET = ["BHZ", "SHZ"]
 # constrain channel
 
 
-CROSSCORR_STATIONS_SUBSET = ["ALS", "WMQ"]    
+CROSSCORR_STATIONS_SUBSET = ["ALS", "WMQ", "AKS", "BLT"]   
 # subset of stations (null if all, else JSON list)
-CROSS_STATIONS_DELETE = ["SSH","DSZ", "AKS"] 
+CROSS_STATIONS_DELETE = ["SSH","DSZ"] 
 # subset of stations (null if None, else JSON list)
 CROSSCORR_TMAX = 2000               
 # max time window (s) for cross-correlation

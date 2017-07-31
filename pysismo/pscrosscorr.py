@@ -241,8 +241,8 @@ class CrossCorrelation:
         # cross-correlation
         if xcorr is None:
             # calculating cross-corr using obspy, if not already provided
-            xcorr = obspy.signal.cross_correlation.xcorr(
-                tr1, tr2, shift_len=self._get_xcorr_nmax(), full_xcorr=True)[2]
+            xcorr = obspy.signal.cross_correlation.correlate(
+                tr1, tr2, shift=int(self._get_xcorr_nmax()))
 
         # verifying that we don't have NaN
         if np.any(np.isnan(xcorr)):
@@ -2367,6 +2367,7 @@ def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=(),
             # try to attach response from SACPZ file
             try:
                 attach_resp(trace, resp_file_path[trace.id], tovel=True)
+                return None
             except:
                 # no response found!
                 raise pserrors.CannotPreprocess("No response found")
@@ -2454,7 +2455,6 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
                      corners=corners,
                      zerophase=zerophase)
         psutils.resample(trace, dt_resample=period_resample)
-
         trace.simulate(paz_remove=paz,
                        paz_simulate=obspy.signal.invsim.corn_freq_2_paz(0.01),
                        remove_sensitivity=True,

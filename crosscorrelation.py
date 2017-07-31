@@ -106,7 +106,7 @@ from termcolor import colored
 MULTIPROCESSING = {'merge trace': False,
                    'process trace': True,
                    'cross-corr': True}
-VERBOSE = False
+VERBOSE = True
 # how many concurrent processes? (set None to let multiprocessing module decide)
 NB_PROCESSES = None
 if any(MULTIPROCESSING.values()):
@@ -429,8 +429,8 @@ for date in dates:
             pool.close()
             pool.join()
         else:
-            traces = [preprocessed_trace(tr,responses,
-                                resp_file_path=resp_file_path) for tr in traces]
+            traces = [preprocessed_trace(tr, res, resp_file_path=resp_file_path)
+                      for tr, res in list(zip(traces, responses))]
 
     # setting up dict of current date's traces, {station: trace}
     tracedict = {s.name: trace for s, trace in zip(date_stations, traces) if trace}
