@@ -79,11 +79,14 @@
 #
 #
 MSEED_DIR = /run/media/seispider/Seagate Backup Plus Drive
-STATIONXML_DIR = ../../Projects/TianShan/stationxml_files
-DATALESS_DIR = ../../Projects/TianShan/Dataless seed
-RESP_DIR = ../../Projects/TianShan/RESP_file
+STATIONXML_DIR = null
+DATALESS_DIR = null
+RESP_DIR = null
 SACPZ_DIR = ../../Projects/China/response/CSNPZ_2016
 STATIONINFO_DIR = ./info/station.info
+CATALOG_DIR = ./info/catalog.csv
+EQWAVEFORM_DIR = ../../Projects/China/EQPROCE/DATA
+
 
 CROSSCORR_DIR = ./output/cross_correlation 
 # dir of cross-correlation results
@@ -166,7 +169,7 @@ USE_COMBINATION_RESP = False
 FIRSTDAY = 1/5/2016                 
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 1/6/2016                 
+LASTDAY = 1/9/2016                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.99                      
@@ -177,9 +180,9 @@ CHANNELS_SUBSET = ["BHZ", "SHZ"]
 # constrain channel
 
 
-CROSSCORR_STATIONS_SUBSET = ["ALS", "WMQ", "AKS", "BLT"]   
+CROSSCORR_STATIONS_SUBSET = ["ALS", "HTB"]   
 # subset of stations (null if all, else JSON list)
-CROSS_STATIONS_DELETE = ["SSH","DSZ"] 
+CROSS_STATIONS_DELETE = null 
 # subset of stations (null if None, else JSON list)
 CROSSCORR_TMAX = 2000               
 # max time window (s) for cross-correlation
@@ -188,7 +191,7 @@ CROSSCORR_SKIPLOCS = ["50"]
 
 PERIODMIN = 3.0                     
 # bandpass parameters
-PERIODMAX = 120.0
+PERIODMAX = 200.0
 CORNERS = 2
 ZEROPHASE = True
 PERIOD_RESAMPLE = 1.0               
@@ -202,6 +205,10 @@ PERIODMAX_EARTHQUAKE = 50.0
 
 WINDOW_FREQ = 0.0002                
 # freq window (Hz) to smooth ampl spectrum
+
+# surface wave velocity in trimmer
+VELOMIN = 1.5
+VELOMAX = 7.5
 
 
 #=====

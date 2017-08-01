@@ -255,7 +255,8 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
         print ("Inserting coordinates to stations from inventories")
 
     if database:
-        stationinfo = get_station_database(stationinfo_dir=STATIONINFO_DIR)
+        stationinfo = database
+        # stationinfo = get_station_database(stationinfo_dir=STATIONINFO_DIR)
 
     for sta in copy(stations):
         # coordinates of station in dataless inventories

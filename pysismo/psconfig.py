@@ -62,6 +62,9 @@ DATALESS_DIR = config.get('paths', 'DATALESS_DIR')
 RESP_DIR = config.get('paths','RESP_DIR')
 SACPZ_DIR = config.get('paths','SACPZ_DIR')
 STATIONINFO_DIR = config.get('paths','STATIONINFO_DIR')
+CATALOG_DIR = config.get('paths','CATALOG_DIR')
+EQWAVEFORM_DIR = config.get('paths','EQWAVEFORM_DIR')
+
 # output dirs
 CROSSCORR_DIR = config.get('paths', 'CROSSCORR_DIR')
 FTAN_DIR = config.get('paths', 'FTAN_DIR')
@@ -146,6 +149,10 @@ WINDOW_FREQ = config.getfloat('cross-correlation', 'WINDOW_FREQ')
 
 # Max time window (s) for cross-correlation
 CROSSCORR_TMAX = config.getfloat('cross-correlation', 'CROSSCORR_TMAX')
+
+# Min and Max surface wave velocity in trimmer
+VELOMAX = config.getfloat('cross-correlation', 'VELOMAX')
+VELOMIN = config.getfloat('cross-correlation', 'VELOMIN')
 
 
 # ---------------

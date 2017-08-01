@@ -90,7 +90,7 @@ The files, depending on their extension, contain the following data:
                   unity), stacked as a function of inter-station distance.
 """
 
-from pysismo import pscrosscorr, pserrors, psstation
+from pysismo import pscrosscorr, pserrors, psstation, trimmer
 from pysismo.global_var import logger
 import os
 import sys
@@ -107,7 +107,8 @@ MULTIPROCESSING = {'merge trace': False,
                    'process trace': True,
                    'cross-corr': True}
 VERBOSE = True
-# how many concurrent processes? (set None to let multiprocessing module decide)
+# how many concurrent processes? (set None to let multiprocessing module
+# decide)
 NB_PROCESSES = None
 if any(MULTIPROCESSING.values()):
     import multiprocessing as mp
@@ -118,34 +119,60 @@ if any(MULTIPROCESSING.values()):
 # ====================================================
 
 from pysismo.psconfig import (
-    MSEED_DIR, DATALESS_DIR, STATIONXML_DIR, RESP_DIR,CROSSCORR_DIR,SACPZ_DIR,
-    USE_DATALESSPAZ, USE_STATIONXML,USE_COMBINATION,CROSSCORR_STATIONS_SUBSET,
-    CROSSCORR_SKIPLOCS,USE_COMBINATION_RESP,CROSS_STATIONS_DELETE,
-    FIRSTDAY, LASTDAY, MINFILL, FREQMIN, FREQMAX, CORNERS, ZEROPHASE, PERIOD_RESAMPLE,
-    ONEBIT_NORM, FREQMIN_EARTHQUAKE, FREQMAX_EARTHQUAKE, WINDOW_TIME, WINDOW_FREQ,
-    CROSSCORR_TMAX)
+    MSEED_DIR, DATALESS_DIR, STATIONXML_DIR, RESP_DIR, CROSSCORR_DIR, SACPZ_DIR,
+    STATIONINFO_DIR, CATALOG_DIR, EQWAVEFORM_DIR, USE_DATALESSPAZ, USE_STATIONXML,
+    USE_COMBINATION, CROSSCORR_STATIONS_SUBSET, CROSSCORR_SKIPLOCS,
+    USE_COMBINATION_RESP, CROSS_STATIONS_DELETE, FIRSTDAY, LASTDAY, MINFILL,
+    FREQMIN, FREQMAX, CORNERS, ZEROPHASE, PERIOD_RESAMPLE, ONEBIT_NORM,
+    FREQMIN_EARTHQUAKE, FREQMAX_EARTHQUAKE, WINDOW_TIME, WINDOW_FREQ,
+    CROSSCORR_TMAX, VELOMAX, VELOMIN)
 
-print("\nProcessing parameters:")
-print("- dir of miniseed data: " + MSEED_DIR)
-print("- dir of dataless seed data: " + DATALESS_DIR)
-print("- dir of stationXML data: " + STATIONXML_DIR)
-print("- dir of RESP files:" + RESP_DIR)
-print("- dir of POLEZERO files:" + SACPZ_DIR)
-print("- output dir: " + CROSSCORR_DIR)
-print("- band-pass: {:.1f}-{:.1f} s".format(1.0 / FREQMAX, 1.0 / FREQMIN))
+logger.info("processing parameters")
+if "{}".format(MSEED_DIR) != "null":
+    msg = "dir of miniseed -> {}".format(MSEED_DIR)
+    logger.info(msg)
+if "{}".format(DATALESS_DIR) != "null":
+    msg = "dir of dataless seed -> {}".format(DATALESS_DIR)
+    logger.info(msg)
+if "{}".format(STATIONXML_DIR) != "null":
+    msg = "dir of stationxml -> {}".format(STATIONXML_DIR)
+    logger.info(msg)
+if "{}".format(STATIONINFO_DIR) != "null":
+    msg = "dir of station database -> {}".format(STATIONINFO_DIR)
+    logger.info(msg)
+if "{}".format(CATALOG_DIR) != "null":
+    msg = "dir of catalog -> {}".format(CATALOG_DIR)
+    logger.info(msg)
+if "{}".format(EQWAVEFORM_DIR) != "null":
+    msg = "dir of earthquake -> {}".format(EQWAVEFORM_DIR)
+    logger.info(msg)
+if "{}".format(RESP_DIR) != "null":
+    msg = "dir of RESP file -> {}".format(RESP_DIR)
+    logger.info(msg)
+if "{}".format(SACPZ_DIR) != "null":
+    msg = "dir of SAC PZ file -> {}".format(SACPZ_DIR)
+    logger.info(msg)
+if "{}".format(CROSSCORR_DIR) != "null":
+    msg = "output dir -> {}".format(CROSSCORR_DIR)
+    logger.info(msg)
+logger.info(
+        "bandpass -> {:.1f}-{:.1f} s".format(1.0 / FREQMAX, 1.0 / FREQMIN))
+
+
 if ONEBIT_NORM:
-    print("- normalization in time-domain: one-bit normalization")
+    logger.info("normalization in time-domain: one-bit normalization")
 else:
-    s = ("- normalization in time-domain: "
+    s = ("normalization in time-domain: "
          "running normalization in earthquake band ({:.1f}-{:.1f} s)")
-    print(s.format(1.0 / FREQMAX_EARTHQUAKE, 1.0 / FREQMIN_EARTHQUAKE))
+    logger.info(s.format(1.0 / FREQMAX_EARTHQUAKE, 1.0 / FREQMIN_EARTHQUAKE))
 fmt = '%d/%m/%Y'
-s = "- cross-correlation will be stacked between {}-{}"
-print(s.format(FIRSTDAY.strftime(fmt), LASTDAY.strftime(fmt)))
+s = "cross-correlation will be stacked between {}-{}"
+logger.info(
+    colored(s.format(FIRSTDAY.strftime(fmt), LASTDAY.strftime(fmt)), 'red'))
+
 subset = CROSSCORR_STATIONS_SUBSET
 if subset:
-    logger.info("  for stations: {}".format(', '.join(subset)))
-
+    logger.info("for stations: {}".format(', '.join(subset)))
 # ========================================
 # Name of output files (without extension).
 # E.g., "xcorr_2000-2012_xmlresponse"
@@ -170,15 +197,18 @@ OUTBASENAME_PARTS = [
     '1bitnorm' if ONEBIT_NORM else None,
     '+'.join(responsefrom)
 ]
-OUTFILESPATH = os.path.join(CROSSCORR_DIR, '_'.join(p for p in OUTBASENAME_PARTS if p))
-msg = 'Default name of output files (without extension):\n"{}"\n'.format(OUTFILESPATH)
+OUTFILESPATH = os.path.join(CROSSCORR_DIR, '_'.join(
+    p for p in OUTBASENAME_PARTS if p))
+msg = 'Default name of output files (without extension):\n"{}"\n'.format(
+    OUTFILESPATH)
 logger.info(msg)
 
 # import arguments
-suffix=sys.argv[1]
+suffix = sys.argv[1]
 if suffix:
     OUTFILESPATH = '{}_{}'.format(OUTFILESPATH, suffix)
-msg = 'Results will be exported to files:\n"{}"(+ extension)\n'.format(OUTFILESPATH)
+msg = 'Results will be exported to files:\n"{}"(+ extension)\n'.format(
+    OUTFILESPATH)
 logger.info(msg)
 
 # ============
@@ -200,28 +230,34 @@ if USE_STATIONXML:
 
 resp_file_path = []
 if USE_COMBINATION:
-    xml_inventories=[]
+    xml_inventories = []
     xml_inventories = psstation.get_stationxml_inventories(STATIONXML_DIR,
-                                                            verbose=False)
+                                                           verbose=False)
 
     # Reading RESP or SACPZ filenames into one list
     if USE_COMBINATION_RESP:
-        resp_file_path = psstation.get_RESP_filelists(RESP_DIR,verbose=False)
+        resp_file_path = psstation.get_RESP_filelists(RESP_DIR, verbose=False)
     else:
-        resp_file_path = psstation.get_SACPZ_filelists(SACPZ_DIR,verbose=False)
+        resp_file_path = psstation.get_SACPZ_filelists(
+            SACPZ_DIR, verbose=False)
 
 # Getting list of stations
 # -------------------------------
 # COMP: Using stationxml file to
 #   support location information
 # -------------------------------
+
+# Initializing Trimer class
+trimmer = trimmer.Trimmer(stationinfo=STATIONINFO_DIR, catalog=CATALOG_DIR,
+                          sacdir=EQWAVEFORM_DIR, velomin=VELOMIN, velomax=VELOMAX)
+
 stations_all = psstation.get_stations(mseed_dir=MSEED_DIR,
-                                  xml_inventories=xml_inventories,
-                                  dataless_inventories=dataless_inventories,
-                                  database=True,
-                                  startday=FIRSTDAY,
-                                  endday=LASTDAY,
-                                  verbose=True)
+                                      xml_inventories=xml_inventories,
+                                      dataless_inventories=dataless_inventories,
+                                      database=trimmer.stations,
+                                      startday=FIRSTDAY,
+                                      endday=LASTDAY,
+                                      verbose=True)
 
 # Filter stations to delete subset of stations in *CROSS_STATIONS_DELETE*
 if CROSS_STATIONS_DELETE:
@@ -232,18 +268,17 @@ if CROSS_STATIONS_DELETE:
 
         Exist = station.name in CROSS_STATIONS_DELETE
         if Exist:
-            logger.info(colored("Delete {} ".format(station.name),'red'))
+            logger.info(colored("Delete {} ".format(station.name), 'red'))
             continue
         stations.append(station)
 else:
     # Don't delete any station
     stations = stations_all
 
-logger.info(colored("ALL {} stations".format(str(len(stations))),'green'))
+logger.info(colored("ALL {} stations".format(str(len(stations))), 'green'))
 
 
-
-# Initializing collection of cross-correlations
+# Initializing collection of cross-correlationsi
 xc = pscrosscorr.CrossCorrelationCollection()
 
 if VERBOSE:
@@ -269,12 +304,13 @@ for date in dates:
 
     # loop on stations appearing in subdir corresponding to current month
     date_subdir = date.strftime("%Y%m%d")
-    date_stations = sorted(sta for sta in stations if date_subdir in sta.subdirs)
+    date_stations = sorted(
+        sta for sta in stations if date_subdir in sta.subdirs)
 
     # subset if stations (if provided)
     if CROSSCORR_STATIONS_SUBSET:
         date_stations = [sta for sta in date_stations
-                          if sta.name in CROSSCORR_STATIONS_SUBSET]
+                         if sta.name in CROSSCORR_STATIONS_SUBSET]
 
     # =============================================================
     # preparing functions that get one merged trace per station
@@ -303,10 +339,11 @@ for date in dates:
 
         if errmsg:
             # printing error message
-            logger.error('{}.{} [{}] '.format(station.network, station.name, errmsg))
+            logger.error('{}.{} [{}] '.format(
+                station.network, station.name, errmsg))
         return trace
 
-    def preprocessed_trace(trace, response, resp_file_path=None):
+    def preprocessed_trace(trace, response, trimmer=None, resp_file_path=None):
         """
         Preparing func that returns processed trace: processing includes
         removal of instrumental response, band-pass filtering, demeaning,
@@ -326,6 +363,7 @@ for date in dates:
         try:
             pscrosscorr.preprocess_trace(
                 trace=trace,
+                trimmer=trimmer,
                 paz=response,
                 resp_file_path=resp_file_path,
                 freqmin=FREQMIN,
@@ -348,6 +386,7 @@ for date in dates:
             # unhandled exception!
             trace = None
             msg = 'Unhandled error: {}'.format(err)
+            print("error Here!")
             # printing output (error or ok) message
             logger.error('{}.{} [{}] '.format(network, station, msg))
         # although processing is performed in-place, trace is returned
@@ -367,7 +406,6 @@ for date in dates:
     else:
         # multiprocessing turned off: processing stations one after another
         traces = [get_merged_trace(s) for s in date_stations]
-
     # =====================================================
     # getting or attaching instrumental response
     # (parallelization is difficult because of inventories)
@@ -397,14 +435,16 @@ for date in dates:
             # unhandled exception!
             response = False
             errmsg = 'Unhandled error: {}'.format(err)
+            print("error Here2!")
 
         responses.append(response)
         if errmsg:
             # printing error message
             logger.error('{}.{} [{}] '.format(tr.stats.network, tr.stats.station,
-                                                                errmsg))
+                                              errmsg))
     if VERBOSE:
-        logger.info(colored("import data {}".format(dt.datetime.now() - t0), 'red'))
+        logger.info(colored("import data {}".format(
+            dt.datetime.now() - t0), 'red'))
     t0 = dt.datetime.now()
     # =================
     # processing traces
@@ -413,30 +453,38 @@ for date in dates:
         if MULTIPROCESSING['process trace']:
             # multiprocessing turned on: one process per station
             pool = mp.Pool(NB_PROCESSES)
-            traces = pool.starmap(preprocessed_trace, list(zip(traces, responses)))
+            traces = pool.starmap(preprocessed_trace, list(zip(traces,
+                                                               responses,
+                                                               it.repeat(trimmer))))
             pool.close()
             pool.join()
         else:
             # multiprocessing turned off: processing stations one after another
-            traces = [preprocessed_trace(tr, res)
-                                 for tr, res in list(zip(traces, responses))]
+            traces = [preprocessed_trace(tr, res, trim)
+                      for tr, res, trim in list(zip(traces, responses,
+                                              it.repeat(trimmer)))]
     else:
         if MULTIPROCESSING['process trace']:
-            #multiprocess truned on: one process per station
+            # multiprocess truned on: one process per station
             logger.info("MULTIPROCESSING")
             pool = mp.Pool(NB_PROCESSES)
-            traces = pool.starmap(preprocessed_trace,list(zip(traces, responses, it.repeat(resp_file_path))))
+            traces = pool.starmap(preprocessed_trace, list(zip(traces, responses,
+                                                               it.repeat(trimmer),
+                                                               it.repeat(resp_file_path))))
             pool.close()
             pool.join()
         else:
-            traces = [preprocessed_trace(tr, res, resp_file_path=resp_file_path)
-                      for tr, res in list(zip(traces, responses))]
+            traces = [preprocessed_trace(tr, res, trim,
+                                         resp_file_path=resp_file_path)
+                      for tr, res, trim in list(zip(traces, responses, it.repeat(trimmer)))]
 
     # setting up dict of current date's traces, {station: trace}
-    tracedict = {s.name: trace for s, trace in zip(date_stations, traces) if trace}
+    tracedict = {s.name: trace for s, trace in zip(
+        date_stations, traces) if trace}
 
     delta = (dt.datetime.now() - t0).total_seconds()
-    logger.info(colored("Processed stations in {:.1f} seconds".format(delta), 'green'))
+    logger.info(
+        colored("Processed stations in {:.1f} seconds".format(delta), 'green'))
 
     # ==============================================
     # stacking cross-correlations of the current day
@@ -474,7 +522,8 @@ for date in dates:
         xcorrs = pool.map(xcorr_func, pairs)
         pool.close()
         pool.join()
-        xcorrdict = {(s1, s2): xcorr for ((s1, _), (s2, _)), xcorr in zip(pairs, xcorrs)}
+        xcorrdict = {(s1, s2): xcorr for ((s1, _), (s2, _)),
+                     xcorr in zip(pairs, xcorrs)}
 
     logger.info("Stacking cross-correlations")
     xc.add(tracedict=tracedict,
@@ -484,7 +533,8 @@ for date in dates:
            verbose=not MULTIPROCESSING['cross-corr'])
 
     delta = (dt.datetime.now() - t0).total_seconds()
-    msg = "Calculated and stacked cross-correlations in {:.1f} seconds".format(delta)
+    msg = "Calculated and stacked cross-correlations in {:.1f} seconds".format(
+        delta)
     logger.info(msg)
 
 t0 = dt.datetime.now()
@@ -495,8 +545,10 @@ else:
     # exporting to binary and ascii files
     xc.export(outprefix=OUTFILESPATH, stations=stations, verbose=True)
 
-logger.info(colored("After stacking process {}".format(dt.datetime.now() - t0), 'red'))
-logger.info(colored("Second / month * pair {}".format(dt.datetime.now() - tstart), 'red'))
+logger.info(colored("After stacking process {}".format(
+    dt.datetime.now() - t0), 'red'))
+logger.info(
+    colored("Second / month * pair {}".format(dt.datetime.now() - tstart), 'red'))
 # removing file containing periodical exports of cross-corrs
 try:
     os.remove('{}.part.pickle'.format(OUTFILESPATH))

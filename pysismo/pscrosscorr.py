@@ -2362,12 +2362,13 @@ def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=(),
         try:
             # try to attach response from SACPZ file
             attach_paz(trace, resp_file_path[trace.id], tovel=True)
-            return None
+            return 'self'
+
         except pserrors.NoPAZFound:
             # try to attach response from SACPZ file
             try:
                 attach_resp(trace, resp_file_path[trace.id], tovel=True)
-                return None
+                return 'self'
             except:
                 # no response found!
                 raise pserrors.CannotPreprocess("No response found")
@@ -2396,7 +2397,7 @@ def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=(),
                 raise pserrors.CannotPreprocess("No response found")
 
 
-def preprocess_trace(trace, paz=None,resp_file_path=None,
+def preprocess_trace(trace, trimmer=None, paz=None, resp_file_path=None,
                      freqmin=FREQMIN, freqmax=FREQMAX,
                      freqmin_earthquake=FREQMIN_EARTHQUAKE,
                      freqmax_earthquake=FREQMAX_EARTHQUAKE,
@@ -2424,7 +2425,7 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
 
     @type trace: L{Trace}
     @param paz: poles and zeros of instrumental response
-                (set None if response is directly attached to trace)
+                (set 'self' if response is directly attached to trace)
     @param freqmin: low frequency of the band-pass filter
     @param freqmax: high frequency of the band-pass filter
     @param freqmin_earthquake: low frequency of the earthquake band
@@ -2449,6 +2450,8 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
     # removing response...
     if paz or resp_file_path:
         # ...using paz:
+        trace.detrend(type='constant')
+        trace.detrend(type='linear')
         trace.filter(type="bandpass",
                      freqmin=freqmin,
                      freqmax=freqmax,
@@ -2456,10 +2459,11 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
                      zerophase=zerophase)
         psutils.resample(trace, dt_resample=period_resample)
         trace.simulate(paz_remove=paz,
-                       paz_simulate=obspy.signal.invsim.corn_freq_2_paz(0.01),
+                       paz_simulate=obspy.signal.invsim.corn_freq_2_paz(0.005),
                        remove_sensitivity=True,
                        simulate_sensitivity=True,
-                       nfft_pow2=True)
+                       nfft_pow2=True,
+                       )
     else:
         # ...using StationXML:
         # first band-pass to downsample data before removing response
@@ -2472,6 +2476,11 @@ def preprocess_trace(trace, paz=None,resp_file_path=None,
         psutils.resample(trace, dt_resample=period_resample)
         trace.remove_response(output="VEL", zero_mean=True)
 
+# trim teleseismic surface wave waveform from seismic records
+    print(trace)
+    if trimmer:
+        trimmer.get_waveform(trace)
+    print(trace)
     # trimming, demeaning, detrending
     midt = trace.stats.starttime + (trace.stats.endtime -
                                     trace.stats.starttime) / 2.0
