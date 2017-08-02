@@ -106,7 +106,6 @@ from termcolor import colored
 MULTIPROCESSING = {'merge trace': False,
                    'process trace': True,
                    'cross-corr': True}
-VERBOSE = True
 # how many concurrent processes? (set None to let multiprocessing module
 # decide)
 NB_PROCESSES = None
@@ -129,44 +128,44 @@ from pysismo.psconfig import (
 
 logger.info("processing parameters")
 if "{}".format(MSEED_DIR) != "null":
-    msg = "dir of miniseed -> {}".format(MSEED_DIR)
+    msg = "dir of miniseed -> \n\t\t{}".format(MSEED_DIR)
     logger.info(msg)
 if "{}".format(DATALESS_DIR) != "null":
-    msg = "dir of dataless seed -> {}".format(DATALESS_DIR)
+    msg = "dir of dataless seed -> \n\t\t{}".format(DATALESS_DIR)
     logger.info(msg)
 if "{}".format(STATIONXML_DIR) != "null":
-    msg = "dir of stationxml -> {}".format(STATIONXML_DIR)
+    msg = "dir of stationxml -> \n\t\t{}".format(STATIONXML_DIR)
     logger.info(msg)
 if "{}".format(STATIONINFO_DIR) != "null":
-    msg = "dir of station database -> {}".format(STATIONINFO_DIR)
+    msg = "dir of station database -> \n\t\t{}".format(STATIONINFO_DIR)
     logger.info(msg)
 if "{}".format(CATALOG_DIR) != "null":
-    msg = "dir of catalog -> {}".format(CATALOG_DIR)
+    msg = "dir of catalog -> \n\t\t{}".format(CATALOG_DIR)
     logger.info(msg)
 if "{}".format(EQWAVEFORM_DIR) != "null":
-    msg = "dir of earthquake -> {}".format(EQWAVEFORM_DIR)
+    msg = "dir of earthquake -> \n\t\t{}".format(EQWAVEFORM_DIR)
     logger.info(msg)
 if "{}".format(RESP_DIR) != "null":
-    msg = "dir of RESP file -> {}".format(RESP_DIR)
+    msg = "dir of RESP file -> \n\t\t{}".format(RESP_DIR)
     logger.info(msg)
 if "{}".format(SACPZ_DIR) != "null":
-    msg = "dir of SAC PZ file -> {}".format(SACPZ_DIR)
+    msg = "dir of SAC PZ file -> \n\t\t{}".format(SACPZ_DIR)
     logger.info(msg)
 if "{}".format(CROSSCORR_DIR) != "null":
-    msg = "output dir -> {}".format(CROSSCORR_DIR)
+    msg = "output dir -> \n\t\t{}".format(CROSSCORR_DIR)
     logger.info(msg)
 logger.info(
         "bandpass -> {:.1f}-{:.1f} s".format(1.0 / FREQMAX, 1.0 / FREQMIN))
 
 
 if ONEBIT_NORM:
-    logger.info("normalization in time-domain: one-bit normalization")
+    logger.info("temporal normalization -> one-bit normalization")
 else:
-    s = ("normalization in time-domain: "
-         "running normalization in earthquake band ({:.1f}-{:.1f} s)")
+    s = ("running mean normalization -> "
+         "arthquake band ({:.1f}-{:.1f} s)")
     logger.info(s.format(1.0 / FREQMAX_EARTHQUAKE, 1.0 / FREQMIN_EARTHQUAKE))
 fmt = '%d/%m/%Y'
-s = "cross-correlation will be stacked between {}-{}"
+s = "stacked length -> {}-{}"
 logger.info(
     colored(s.format(FIRSTDAY.strftime(fmt), LASTDAY.strftime(fmt)), 'red'))
 
@@ -281,8 +280,7 @@ logger.info(colored("ALL {} stations".format(str(len(stations))), 'green'))
 # Initializing collection of cross-correlationsi
 xc = pscrosscorr.CrossCorrelationCollection()
 
-if VERBOSE:
-    logger.info(colored("Initialization time {}".format(dt.datetime.now() - tstart),
+logger.info(colored("Initialization time {}".format(dt.datetime.now() - tstart),
                         'red'))
 # Loop on day
 nday = (LASTDAY - FIRSTDAY).days + 1
@@ -296,7 +294,7 @@ for date in dates:
     if date.day == 1:
         with open('{}.part.pickle'.format(OUTFILESPATH), 'wb') as f:
 
-            msg = "Exporting cross-correlations calculated until now to: " + f.name
+            msg = "Exporting cross-correlations calculated until now to: \n " + f.name
             logger.info(msg)
             pickle.dump(xc, f, protocol=2)
 
@@ -343,7 +341,8 @@ for date in dates:
                 station.network, station.name, errmsg))
         return trace
 
-    def preprocessed_trace(trace, response, trimmer=None, resp_file_path=None):
+    def preprocessed_trace(trace, response, trimmer=None, resp_file_path=None,
+                           debug=False):
         """
         Preparing func that returns processed trace: processing includes
         removal of instrumental response, band-pass filtering, demeaning,
@@ -358,6 +357,9 @@ for date in dates:
             return
         logger.info("Preprocessing.{}".format(trace.id))
 
+        if debug:
+            print(trace, response, trimmer, len(resp_file_path))
+            print(type(response), type(trimmer), type(resp_file_path))
         network = trace.stats.network
         station = trace.stats.station
         try:
@@ -386,7 +388,6 @@ for date in dates:
             # unhandled exception!
             trace = None
             msg = 'Unhandled error: {}'.format(err)
-            print("error Here!")
             # printing output (error or ok) message
             logger.error('{}.{} [{}] '.format(network, station, msg))
         # although processing is performed in-place, trace is returned
@@ -435,16 +436,14 @@ for date in dates:
             # unhandled exception!
             response = False
             errmsg = 'Unhandled error: {}'.format(err)
-            print("error Here2!")
 
         responses.append(response)
         if errmsg:
             # printing error message
             logger.error('{}.{} [{}] '.format(tr.stats.network, tr.stats.station,
                                               errmsg))
-    if VERBOSE:
-        logger.info(colored("import data {}".format(
-            dt.datetime.now() - t0), 'red'))
+
+    logger.debug(colored("import data {}".format(dt.datetime.now() - t0), 'red'))
     t0 = dt.datetime.now()
     # =================
     # processing traces
@@ -493,9 +492,9 @@ for date in dates:
     if len(tracedict) < 2:
         logger.error("No cross-correlation for this day")
         continue
-    if VERBOSE:
-        logger.info(colored("trace preprocess {}".format(dt.datetime.now() - t0),
-                            'red'))
+
+    logger.debug(colored("trace preprocess {}".format(dt.datetime.now() - t0),
+                                                                      'red'))
 
     t0 = dt.datetime.now()
     xcorrdict = {}

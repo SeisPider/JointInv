@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf8 -*-
 """
-Script to trim earthquake event waveform from continues waveform.
+Script to trim earthquake event waveform from continuous waveform.
 
 miniSEED should be organized as:
 
@@ -56,11 +56,16 @@ For example:
     |    |-- 2016.005.14.03.22.0000.AH.ANQ.00.BHZ.M.mseed
     |    `-- ...
 
+:copyright:
+    The ObsPy Development Team (devs@obspy.org)
+:license:
+    GNU Lesser General Public License, Version 3
 """
 import os
 import re
 import copy
 
+import numpy as np
 from obspy import read, Stream, UTCDateTime
 from obspy.io.sac import SACTrace
 from obspy.geodetics.base import gps2dist_azimuth
@@ -69,17 +74,30 @@ from .global_var import logger
 
 class Trimmer(object):
     def __init__(self, stationinfo, catalog, sacdir, velomin, velomax):
+        """
+        Initialize trimmer class
+
+        :param stationinfo: station database
+        :type stationinfo : str, path-like object
+        :param catalog: events database
+        :type catalog : str, path-like object
+        :param sacdir: output dir
+        :type sacdir : str, path-like object
+        :param velomin: minimum velocity of trimmed wave train
+        :type velomin : int or float
+        :param velomax: maximum velocity of trimmed wave train
+        :type velomax : int or float
+        """
         self.sacdir = sacdir
         self.stations = self._read_stations(stationinfo)
         self.events = self._read_catalog(catalog)
-        self.by_speed = {"maximum":velomax, "minimum":velomin}
+        self.by_speed = {"maximum": velomax, "minimum": velomin}
 
     def _read_catalog(self, catalog):
         '''
         Read event catalog.
 
         Format of event catalog:
-
             origin  latitude  longitude  depth  magnitude  magnitude_type
 
         Example:
@@ -137,6 +155,16 @@ class Trimmer(object):
     def _writesac(self, stream, event, station, outdir):
         """
         Write data with SAC format with event and station information.
+
+
+        :param stream: stream contains traces to be written
+        :type stream :  class `~obspy.core.stream.Stream`
+        :param event: dict contains information of event
+        :type event :  dict
+        :param station: dict contains stations' information
+        :type station :  dict
+        :param outdir: output dir of traimmed SAC files
+        :type outdir :  str or path-like object
         """
         for trace in stream:
             # transfer obspy trace to sac trace
@@ -203,7 +231,7 @@ class Trimmer(object):
 
     def read_sac(self, event, traceid):
         """
-        read trimed trace
+        read trimmed traces in SAC format
         """
         eventdir = event['origin'].strftime("%Y%m%d%H%M%S")
         outdir = os.path.join(self.sacdir, eventdir)
@@ -219,51 +247,77 @@ class Trimmer(object):
     def get_waveform(self, trace):
         """
         Get waveform of events
+
+        :param trace : continuous waveform containing events
+        :type trace  : `~obspy.core.trace.Trace`
         """
         # abandon influence of in-place change
-        tr_copy = copy.copy(trace)
+        tr_ori = copy.copy(trace)
 
         # check the destination
-        trstart = tr_copy.stats.starttime
-        trend = tr_copy.stats.endtime
+        trstart = tr_ori.stats.starttime
+        trend = tr_ori.stats.endtime
 
-        tracedatestart = trstart.strftime("%Y%m%d")
-        tracedateend = trend.strftime("%Y%m%d")
+        trdatestart = trstart.strftime("%Y%m%d")
+        trdateend = trend.strftime("%Y%m%d")
 
-        events = self.events[tracedatestart] + self.events[tracedateend]
+        # initiation
+        events = []
+        if (trdatestart == trdateend) and (trdateend in self.events.keys()):
+            events += self.events[trdatestart]
+        else:
+            if trdatestart in self.events.keys():
+                events += self.events[trdatestart]
+            if trdateend in self.events.keys():
+                events += self.events[trdateend]
         stationid = ".".join([trace.stats.network, trace.stats.station])
 
+        logger.info("{} events in -> {}-{}".format(len(events), trdatestart,
+                                                   trdateend))
 
+        msg = "trdatestart-trdateend -> {}-{}".format(trdatestart, trdateend)
+        logger.debug(msg)
+        logger.debug("events -> \n {}".format(events))
+        logger.debug("stationid -> {}".format(stationid))
         for event in events:
             st = Stream()
+            # every time, we should copy trace as it is in place change
+            tr_copy = copy.copy(tr_ori)
+
             dist = gps2dist_azimuth(event["latitude"], event["longitude"],
                                     self.stations[stationid]["stla"],
                                     self.stations[stationid]["stlo"])[0]
             dist_km = dist / 1000.0
+            logger.debug("dist_km -> {}".format(dist_km))
 
             eventdir = event['origin'].strftime("%Y%m%d%H%M%S")
             outdir = os.path.join(self.sacdir, eventdir)
             if not os.path.exists(outdir):
                 os.makedirs(outdir, exist_ok=True)
-            # determine starttime and endtime
 
+            # determine starttime and endtime by maximum and minimum velocity
             starttime = event['origin'] + dist_km / self.by_speed["maximum"]
             endtime = event['origin'] + dist_km / self.by_speed["minimum"]
             # ignore some outlier
             if (starttime > trend) or (endtime < trstart):
                 continue
-            tr_trim = tr_copy(starttime=starttime, endtime=endtime)
+            tr_trim = tr_copy.trim(starttime=starttime, endtime=endtime)
             st.append(tr_trim)
-
             # no previous output
             if not self.read_sac(event, tr_trim.id):
                 self._writesac(st, event, self.stations[stationid], outdir)
                 continue
             # there is previous output
-            st.append(self.read_sac(event, tr_trim.id))
+            for tr_pre in self.read_sac(event, tr_trim.id):
+                logger.debug(
+                    "type of previous trace {}".format(tr_pre.data.dtype))
+                logger.debug(
+                    "type of current trace {}".format(st[0].data.dtype))
+                st.append(tr_pre)
+            logger.debug("Stream -> {}".format(st))
             st.merge()
             self._writesac(st, event, self.stations[stationid], outdir)
-            logger.info("trim data of event -- {}", event['origin'])
+            logger.info("trim data of event -> {}".format(event['origin']))
 
     def view_station(self, sta_nm):
         """

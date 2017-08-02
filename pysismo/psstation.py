@@ -7,7 +7,7 @@ from . import pserrors, psutils
 import obspy
 import obspy.core
 from obspy import read_inventory
-from obspy.xseed.utils import SEEDParserException
+from obspy.io.xseed.utils import SEEDParserException
 import os
 import glob
 import pickle
@@ -200,14 +200,14 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
 
     @type mseed_dir: str or unicode
     @type xml_inventories: list of L{obspy.station.inventory.Inventory}
-    @type dataless_inventories: list of L{obspy.xseed.parser.Parser})
+    @type dataless_inventories: list of L{obspy.io.xseed.parser.Parser})
     @type networks: list of str
     @type startday: L{datetime.date}
     @type endday: L{datetime.date}
     @rtype: list of L{Station}
     """
     if verbose:
-        logger.info("Scanning stations in dir: %s", mseed_dir)
+        logger.info("Scanning stations in dir -> \n %s", mseed_dir)
 
     # initializing list of stations by scanning name of miniseed files
     stations = []
@@ -428,7 +428,7 @@ def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
 
     @type dataless_dir: unicode or str
     @type verbose: bool
-    @rtype: list of L{obspy.xseed.parser.Parser}
+    @rtype: list of L{obspy.io.xseed.parser.Parser}
     """
     inventories = []
 
@@ -445,7 +445,7 @@ def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
     for f in flist:
         if verbose:
             print(os.path.basename(f))
-        inv = obspy.xseed.Parser(f)
+        inv = obspy.io.xseed.Parser(f)
         inventories.append(inv)
     # list of *.pickle files
     flist = glob.glob(pathname=os.path.join(dataless_dir, "*.pickle"))
@@ -472,7 +472,7 @@ def get_paz(channelid, t, inventories):
     Gets PAZ from list of dataless (or pickled dict) inventories
     @type channelid: str
     @type t: L{UTCDateTime}
-    @type inventories: list of L{obspy.xseed.parser.Parser} or dict
+    @type inventories: list of L{obspy.io.xseed.parser.Parser} or dict
     @rtype: dict
     """
 

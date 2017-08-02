@@ -166,10 +166,10 @@ USE_COMBINATION = True
 USE_COMBINATION_RESP = False        
 # Use resp to combination else use sac PZ files
 
-FIRSTDAY = 1/5/2016                 
+FIRSTDAY = 30/5/2016                 
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 1/9/2016                 
+LASTDAY = 3/6/2016                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.99                      
@@ -180,7 +180,7 @@ CHANNELS_SUBSET = ["BHZ", "SHZ"]
 # constrain channel
 
 
-CROSSCORR_STATIONS_SUBSET = ["ALS", "HTB"]   
+CROSSCORR_STATIONS_SUBSET = ["ALS", "WMQ"]   
 # subset of stations (null if all, else JSON list)
 CROSS_STATIONS_DELETE = null 
 # subset of stations (null if None, else JSON list)

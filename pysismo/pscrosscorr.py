@@ -7,7 +7,7 @@ dispersion curves.
 
 from . import pserrors, psstation, psutils, pstomo
 import obspy.signal
-import obspy.xseed
+import obspy.io.xseed
 import obspy.signal.cross_correlation
 import obspy.signal.filter
 from obspy.signal.invsim import simulate_seismometer
@@ -36,7 +36,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import gridspec
 import datetime as dt
 
-from termcolor import colored # module to output colored string
+from termcolor import colored  # module to output colored string
 from pysismo.global_var import logger
 plt.ioff()  # turning off interactive mode
 
@@ -65,6 +65,7 @@ class MonthYear:
     """
     Hashable class holding a month of a year
     """
+
     def __init__(self, *args, **kwargs):
         """
         Usage: MonthYear(3, 2012) or MonthYear(month=3, year=2012) or
@@ -118,6 +119,7 @@ class MonthCrossCorrelation:
     """
     Class holding cross-correlation over a single month
     """
+
     def __init__(self, month, ndata):
         """
         @type month: L{MonthYear}
@@ -179,7 +181,8 @@ class CrossCorrelation:
 
         # initializing time and data arrays of cross-correlation
         nmax = int(xcorr_tmax / xcorr_dt)
-        self.timearray = np.arange(-nmax * xcorr_dt, (nmax + 1)*xcorr_dt, xcorr_dt)
+        self.timearray = np.arange(-nmax * xcorr_dt,
+                                   (nmax + 1) * xcorr_dt, xcorr_dt)
         self.dataarray = np.zeros(2 * nmax + 1)
 
         #  has cross-corr been symmetrized? whitened?
@@ -260,7 +263,8 @@ class CrossCorrelation:
 
         # updating stats: 1st day, last day, nb of days of cross-corr
         startday = (tr1.stats.starttime + ONESEC).date
-        self.startday = min(self.startday, startday) if self.startday else startday
+        self.startday = min(
+            self.startday, startday) if self.startday else startday
         endday = (tr1.stats.endtime - ONESEC).date
         self.endday = max(self.endday, endday) if self.endday else endday
         self.nday += 1
@@ -272,7 +276,8 @@ class CrossCorrelation:
                            if monthxc.month == month)
         except StopIteration:
             # appending new month xc
-            monthxc = MonthCrossCorrelation(month=month, ndata=len(self.timearray))
+            monthxc = MonthCrossCorrelation(
+                month=month, ndata=len(self.timearray))
             self.monthxcs.append(monthxc)
         # stacking cross-corr
         try:
@@ -393,7 +398,8 @@ class CrossCorrelation:
             # the noise window hits the rightmost limit:
             # let's shift it to the left without crossing
             # the signal window
-            delta = min(tmax_noise - self.timearray.max(), tmin_noise - tmax_signal)
+            delta = min(tmax_noise - self.timearray.max(),
+                        tmin_noise - tmax_signal)
             tmin_noise -= delta
             tmax_noise -= delta
 
@@ -593,7 +599,8 @@ class CrossCorrelation:
         fig = None
         if not axlist:
             fig = plt.figure()
-            axlist = [fig.add_subplot(nplot, 1, i) for i in range(1, nplot + 1)]
+            axlist = [fig.add_subplot(nplot, 1, i)
+                      for i in range(1, nplot + 1)]
 
         for ax in axlist:
             # smaller y tick label
@@ -866,17 +873,20 @@ class CrossCorrelation:
             it = np.minimum(len(xcout.timearray) - 1, np.maximum(1, it))
             # instantaneous freq: omega = |dphi/dt|(t=arrival time),
             # with phi = phase of FTAN
-            dt = xcout.timearray[it] - xcout.timearray[it-1]
+            dt = xcout.timearray[it] - xcout.timearray[it - 1]
             nT = phase.shape[0]
-            omega = np.abs((phase[list(range(nT)), it] - phase[list(range(nT)), it-1]) / dt)
+            omega = np.abs((phase[list(range(nT)), it] -
+                            phase[list(range(nT)), it - 1]) / dt)
             # -> instantaneous period = 2.pi/omega
             inst_periods = 2.0 * np.pi / omega
-            assert isinstance(inst_periods, np.ndarray)  # just to enable autocompletion
+            # just to enable autocompletion
+            assert isinstance(inst_periods, np.ndarray)
 
             if debug:
                 plt.plot(ftan_periods, inst_periods)
 
-            # removing outliers (inst periods too small or too different from nominal)
+            # removing outliers (inst periods too small or too different from
+            # nominal)
             reldiffs = np.abs((inst_periods - ftan_periods) / ftan_periods)
             discard = (inst_periods < MIN_INST_PERIOD) | \
                       (reldiffs > MAX_RELDIFF_INST_NOMINAL_PERIOD)
@@ -894,7 +904,8 @@ class CrossCorrelation:
                     median_periods.append(med)
                 else:
                     median_periods.append(np.nan)
-            reldiffs = np.abs((inst_periods - np.array(median_periods)) / inst_periods)
+            reldiffs = np.abs(
+                (inst_periods - np.array(median_periods)) / inst_periods)
             mask = ~np.isnan(reldiffs)
             inst_periods[mask] = np.where(reldiffs[mask] > MAX_RELDIFF_INST_MEDIAN_PERIOD,
                                           np.nan,
@@ -917,10 +928,11 @@ class CrossCorrelation:
                 # misfit wrt calculated instantaneous periods
                 return np.sum((periods - inst_periods)**2)
             # constraints = positive increments
-            constraints = [{'type': 'ineq', 'fun': lambda p, i=i: p[i+1] - p[i]}
+            constraints = [{'type': 'ineq', 'fun': lambda p, i=i: p[i + 1] - p[i]}
                            for i in range(len(inst_periods) - 1)]
 
-            res = minimize(fun, x0=ftan_periods, method='SLSQP', constraints=constraints)
+            res = minimize(fun, x0=ftan_periods, method='SLSQP',
+                           constraints=constraints)
             inst_periods = res['x']
 
             if debug:
@@ -1032,15 +1044,20 @@ class CrossCorrelation:
                                         **kwargs)
         except pserrors.CannotCalculateInstFreq:
             # pb with instantaneous frequency: returnin NaNs
-            logger.warning("could not calculate instantenous frequencies in raw FTAN!")
-            rawampl = np.nan * np.zeros((len(RAWFTAN_PERIODS), len(FTAN_VELOCITIES)))
-            cleanampl = np.nan * np.zeros((len(CLEANFTAN_PERIODS), len(FTAN_VELOCITIES)))
+            logger.warning(
+                "could not calculate instantenous frequencies in raw FTAN!")
+            rawampl = np.nan * \
+                np.zeros((len(RAWFTAN_PERIODS), len(FTAN_VELOCITIES)))
+            cleanampl = np.nan * \
+                np.zeros((len(CLEANFTAN_PERIODS), len(FTAN_VELOCITIES)))
             rawvg = pstomo.DispersionCurve(periods=RAWFTAN_PERIODS,
-                                           v=np.nan * np.zeros(len(RAWFTAN_PERIODS)),
+                                           v=np.nan *
+                                           np.zeros(len(RAWFTAN_PERIODS)),
                                            station1=self.station1,
                                            station2=self.station2)
             cleanvg = pstomo.DispersionCurve(periods=CLEANFTAN_PERIODS,
-                                             v=np.nan * np.zeros(len(CLEANFTAN_PERIODS)),
+                                             v=np.nan *
+                                             np.zeros(len(CLEANFTAN_PERIODS)),
                                              station1=self.station1,
                                              station2=self.station2)
             return rawampl, rawvg, cleanampl, cleanvg
@@ -1061,10 +1078,13 @@ class CrossCorrelation:
                                             **kwargs)
         except pserrors.CannotCalculateInstFreq:
             # pb with instantaneous frequency: returnin NaNs
-            logger.warning("could not calculate instantenous frequencies in clean FTAN!")
-            cleanampl = np.nan * np.zeros((len(CLEANFTAN_PERIODS), len(FTAN_VELOCITIES)))
+            logger.warning(
+                "could not calculate instantenous frequencies in clean FTAN!")
+            cleanampl = np.nan * \
+                np.zeros((len(CLEANFTAN_PERIODS), len(FTAN_VELOCITIES)))
             cleanvg = pstomo.DispersionCurve(periods=CLEANFTAN_PERIODS,
-                                             v=np.nan * np.zeros(len(CLEANFTAN_PERIODS)),
+                                             v=np.nan *
+                                             np.zeros(len(CLEANFTAN_PERIODS)),
                                              station1=self.station1,
                                              station2=self.station2)
             return rawampl, rawvg, cleanampl, cleanvg
@@ -1106,7 +1126,8 @@ class CrossCorrelation:
                         use_inst_freq=use_inst_freq,
                         **kwargs)
 
-                    phase_corr_trimester = xc.phase_func(vgcurve=rawvg_trimester)
+                    phase_corr_trimester = xc.phase_func(
+                        vgcurve=rawvg_trimester)
 
                     _, _, cleanvg_trimester = xc.FTAN(
                         whiten=False,
@@ -1118,7 +1139,8 @@ class CrossCorrelation:
                         use_inst_freq=use_inst_freq,
                         **kwargs)
                 except pserrors.CannotCalculateInstFreq:
-                    # skipping trimester in case of pb with instantenous frequency
+                    # skipping trimester in case of pb with instantenous
+                    # frequency
                     continue
 
                 # adding spectral SNRs associated with the periods of the
@@ -1155,7 +1177,8 @@ class CrossCorrelation:
         # array k[f]
         k = np.zeros_like(freqarray[mask])
         k[0] = 0.0
-        k[1:] = 2 * np.pi * integrate.cumtrapz(y=1.0 / vgarray[mask], x=freqarray[mask])
+        k[1:] = 2 * np.pi * \
+            integrate.cumtrapz(y=1.0 / vgarray[mask], x=freqarray[mask])
 
         # array phi[f]
         phi = k * self.dist()
@@ -1259,7 +1282,8 @@ class CrossCorrelation:
         # 1th panel: cross-correlation (original and band-passed)
         # =======================================================
 
-        gs1 = gridspec.GridSpec(len(PERIOD_BANDS) + 1, 1, wspace=0.0, hspace=0.0)
+        gs1 = gridspec.GridSpec(len(PERIOD_BANDS) + 1,
+                                1, wspace=0.0, hspace=0.0)
         axlist = [fig.add_subplot(ss) for ss in gs1]
         self.plot_by_period_band(axlist=axlist, plot_title=False,
                                  whiten=whiten, months=months,
@@ -1276,7 +1300,8 @@ class CrossCorrelation:
 
         extent = (min(RAWFTAN_PERIODS), max(RAWFTAN_PERIODS),
                   min(FTAN_VELOCITIES), max(FTAN_VELOCITIES))
-        m = np.log10(rawampl.transpose() ** 2) if logscale else rawampl.transpose()
+        m = np.log10(rawampl.transpose() **
+                     2) if logscale else rawampl.transpose()
         ax.imshow(m, aspect='auto', origin='lower', extent=extent)
 
         # Period is instantaneous iif a list of (nominal period, inst period)
@@ -1318,7 +1343,8 @@ class CrossCorrelation:
 
         extent = (min(CLEANFTAN_PERIODS), max(CLEANFTAN_PERIODS),
                   min(FTAN_VELOCITIES), max(FTAN_VELOCITIES))
-        m = np.log10(cleanampl.transpose() ** 2) if logscale else cleanampl.transpose()
+        m = np.log10(cleanampl.transpose() **
+                     2) if logscale else cleanampl.transpose()
         ax.imshow(m, aspect='auto', origin='lower', extent=extent)
         # Period is instantaneous iif a list of (nominal period, inst period)
         # is associated with dispersion curve
@@ -1332,7 +1358,8 @@ class CrossCorrelation:
 
         # adding SNR function of period (on a separate y-axis)
         ax2 = ax.twinx()
-        ax2.plot(cleanvg.periods, cleanvg.get_SNRs(xc=self), color='green', lw=2)
+        ax2.plot(cleanvg.periods, cleanvg.get_SNRs(
+            xc=self), color='green', lw=2)
         # fake plot for SNR to appear in legend
         ax.plot([-1, 0], [0, 0], lw=2, color='green', label='SNR')
         ax2.set_ylabel('SNR', color='green')
@@ -1342,7 +1369,8 @@ class CrossCorrelation:
         # trimester vg curves
         ntrimester = len(cleanvg.v_trimesters)
         for i, vg_trimester in enumerate(cleanvg.filtered_trimester_vels()):
-            label = '3-month disp curves (n={})'.format(ntrimester) if i == 0 else None
+            label = '3-month disp curves (n={})'.format(
+                ntrimester) if i == 0 else None
             ax.plot(cleanvg.periods, vg_trimester, color='gray', label=label)
 
         # clean vg curve + error bars
@@ -1381,7 +1409,8 @@ class CrossCorrelation:
         s = (self.station1.name, self.station2.name)
         ax.plot(x, y, '^-', color='k', ms=10, mfc='w', mew=1)
         for lon, lat, label in zip(x, y, s):
-            ax.text(lon, lat, label, ha='center', va='bottom', fontsize=7, weight='bold')
+            ax.text(lon, lat, label, ha='center',
+                    va='bottom', fontsize=7, weight='bold')
         ax.set_xlim(bbox[:2])
         ax.set_ylim(bbox[2:])
 
@@ -1426,7 +1455,8 @@ class CrossCorrelation:
            or 'SPB-ITAB (90 days in months 01-2002, 02-2002)'
         """
         s = '{pref}{sta1}-{sta2} '
-        s = s.format(pref=prefix, sta1=self.station1.name, sta2=self.station2.name)
+        s = s.format(pref=prefix, sta1=self.station1.name,
+                     sta2=self.station2.name)
         if not months:
             nday = self.nday
             s += '({} days from {} to {})'.format(
@@ -1703,7 +1733,8 @@ class CrossCorrelationCollection(AttribDict):
 
             for iplot, (s1, s2) in enumerate(pairs):
                 # symmetrizing cross-corr if necessary
-                xcplot = self[s1][s2].symmetrize(inplace=False) if sym else self[s1][s2]
+                xcplot = self[s1][s2].symmetrize(
+                    inplace=False) if sym else self[s1][s2]
 
                 # spectral whitening
                 if whiten:
@@ -1721,8 +1752,10 @@ class CrossCorrelationCollection(AttribDict):
                     plt.xlim(xlim)
 
                 # title
-                locs1 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
-                locs2 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
+                locs1 = ','.join(
+                    sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
+                locs2 = ','.join(
+                    sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
                 s = '{s1}[{locs1}]-{s2}[{locs2}]: {nday} days from {t1} to {t2}'
                 title = s.format(s1=s1, locs1=locs1, s2=s2, locs2=locs2,
                                  nday=xcplot.nday, t1=xcplot.startday,
@@ -1733,7 +1766,8 @@ class CrossCorrelationCollection(AttribDict):
                 if iplot + 1 == npair:
                     plt.xlabel('Time (s)')
 
-        # distance plot = one plot for all pairs, y-shifted according to pair distance
+        # distance plot = one plot for all pairs, y-shifted according to pair
+        # distance
         elif plot_type == 'distance':
             maxdist = max(self[x][y].dist() for (x, y) in pairs)
             corr2km = maxdist / 30.0
@@ -1743,7 +1777,8 @@ class CrossCorrelationCollection(AttribDict):
             pairs.sort(key=lambda s1_s2: self[s1_s2[0]][s1_s2[1]].dist())
             for ipair, (s1, s2) in enumerate(pairs):
                 # symmetrizing cross-corr if necessary
-                xcplot = self[s1][s2].symmetrize(inplace=False) if sym else self[s1][s2]
+                xcplot = self[s1][s2].symmetrize(
+                    inplace=False) if sym else self[s1][s2]
 
                 # spectral whitening
                 if whiten:
@@ -1770,7 +1805,8 @@ class CrossCorrelationCollection(AttribDict):
                 if npair <= 40:
                     # all annotations on the right side
                     x = xmax - xextent / 10.0
-                    y = maxdist if npair == 1 else ymin + ipair*(ymax-ymin)/(npair-1)
+                    y = maxdist if npair == 1 else ymin + \
+                        ipair * (ymax - ymin) / (npair - 1)
                     xytext = (x, y)
                     xyarrow = (x - xextent / 30.0, xcplot.dist())
                     align = 'left'
@@ -1786,8 +1822,10 @@ class CrossCorrelationCollection(AttribDict):
                     relpos = (1, 0.5) if sign > 0 else (0, 0.5)
                 net1 = xcplot.station1.network
                 net2 = xcplot.station2.network
-                locs1 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
-                locs2 = ','.join(sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
+                locs1 = ','.join(
+                    sorted(["'{0}'".format(loc) for loc in xcplot.locs1]))
+                locs2 = ','.join(
+                    sorted(["'{0}'".format(loc) for loc in xcplot.locs2]))
                 s = '{net1}.{s1}[{locs1}]-{net2}.{s2}[{locs2}]: {nday} days {t1}-{t2}'
                 s = s.format(net1=net1, s1=s1, locs1=locs1, net2=net2, s2=s2,
                              locs2=locs2, nday=xcplot.nday,
@@ -1795,7 +1833,8 @@ class CrossCorrelationCollection(AttribDict):
                              t2=xcplot.endday.strftime('%d/%m/%y'))
 
                 bbox = {'color': color, 'facecolor': 'white', 'alpha': 0.9}
-                arrowprops = {'arrowstyle': "-", 'relpos': relpos, 'color': color}
+                arrowprops = {'arrowstyle': "-",
+                              'relpos': relpos, 'color': color}
 
                 plt.annotate(s=s, xy=xyarrow, xytext=xytext, fontsize=9,
                              color='k', horizontalalignment=align,
@@ -1851,11 +1890,14 @@ class CrossCorrelationCollection(AttribDict):
             return
 
         # min-max SNR
-        minSNR = min([SNR for SNRarray in list(SNRarrays.values()) for SNR in SNRarray])
-        maxSNR = max([SNR for SNRarray in list(SNRarrays.values()) for SNR in SNRarray])
+        minSNR = min([SNR for SNRarray in list(SNRarrays.values())
+                      for SNR in SNRarray])
+        maxSNR = max([SNR for SNRarray in list(SNRarrays.values())
+                      for SNR in SNRarray])
 
         # sorting SNR arrays by increasing first value
-        SNRarrays = OrderedDict(sorted(list(SNRarrays.items()), key=lambda k_v: k_v[1][0]))
+        SNRarrays = OrderedDict(
+            sorted(list(SNRarrays.items()), key=lambda k_v: k_v[1][0]))
 
         # array of mid of time bands
         periodarray = [(tmin + tmax) / 2.0 for (tmin, tmax) in PERIOD_BANDS]
@@ -1875,7 +1917,8 @@ class CrossCorrelationCollection(AttribDict):
 
             # annotation
             xtext = minperiod - 4
-            ytext = minSNR * 0.5 + ipair * (maxSNR - minSNR * 0.5) / (npair - 1)
+            ytext = minSNR * 0.5 + ipair * \
+                (maxSNR - minSNR * 0.5) / (npair - 1)
             xytext = (xtext, ytext)
             xyarrow = (minperiod - 1, SNRarray[0])
             relpos = (1, 0.5)
@@ -1940,7 +1983,8 @@ class CrossCorrelationCollection(AttribDict):
 
         # plotting pairs
         for s1, s2 in pairs:
-            x, y = list(zip(self[s1][s2].station1.coord, self[s1][s2].station2.coord))
+            x, y = list(zip(self[s1][s2].station1.coord,
+                            self[s1][s2].station2.coord))
             if not plotkwargs:
                 plotkwargs = dict(color='grey', lw=0.5)
             plt.plot(x, y, '-', **plotkwargs)
@@ -1970,7 +2014,8 @@ class CrossCorrelationCollection(AttribDict):
         self._to_picklefile(outprefix, verbose=verbose)
         self._to_ascii(outprefix, verbose=verbose)
         self._pairsinfo_to_ascii(outprefix, verbose=verbose)
-        self._stationsinfo_to_ascii(outprefix, stations=stations, verbose=verbose)
+        self._stationsinfo_to_ascii(
+            outprefix, stations=stations, verbose=verbose)
 
     def FTANs(self, prefix=None, suffix='', whiten=False,
               normalize_ampl=True, logscale=True, mindist=None,
@@ -2100,7 +2145,8 @@ class CrossCorrelationCollection(AttribDict):
 
             except Exception as err:
                 # something went wrong with this FTAN
-                logger.error("\nGot unexpected error:\n\n{}\n\nSKIPPING PAIR!".format(err))
+                logger.error(
+                    "\nGot unexpected error:\n\n{}\n\nSKIPPING PAIR!".format(err))
 
         logger.info("\nSaving files...")
 
@@ -2159,14 +2205,17 @@ class CrossCorrelationCollection(AttribDict):
         # writing data file: time array (1st column)
         # and cross-corr array (one column per pair)
         f = psutils.openandbackup(outprefix + '.txt', mode='w')
-        pairs = [(s1, s2) for (s1, s2) in self.pairs(sort=True) if self[s1][s2].nday]
+        pairs = [(s1, s2)
+                 for (s1, s2) in self.pairs(sort=True) if self[s1][s2].nday]
 
         # writing header
         header = ['time'] + ["{0}-{1}".format(s1, s2) for s1, s2 in pairs]
         f.write('\t'.join(header) + '\n')
 
-        # writing line = ith [time, cross-corr 1st pair, cross-corr 2nd pair etc]
-        data = list(zip(self._get_timearray(), *[self[s1][s2].dataarray for s1, s2 in pairs]))
+        # writing line = ith [time, cross-corr 1st pair, cross-corr 2nd pair
+        # etc]
+        data = list(zip(self._get_timearray(), *
+                        [self[s1][s2].dataarray for s1, s2 in pairs]))
         for fields in data:
             line = [str(fld) for fld in fields]
             f.write('\t'.join(line) + '\n')
@@ -2208,7 +2257,8 @@ class CrossCorrelationCollection(AttribDict):
                 self[s1][s2].endday,
                 self[s1][s2].nday
             ]
-            line = [str(fld) if (fld or fld == 0) else 'none' for fld in fields]
+            line = [str(fld) if (fld or fld == 0)
+                    else 'none' for fld in fields]
             f.write('\t'.join(line) + '\n')
 
         f.close()
@@ -2231,7 +2281,8 @@ class CrossCorrelationCollection(AttribDict):
             stations = self.stations(self.pairs(minday=0), sort=True)
 
         # opening stations file and writing:
-        # station name, network, lon, lat, nb of pairs, total days of cross-corr
+        # station name, network, lon, lat, nb of pairs, total days of
+        # cross-corr
         f = psutils.openandbackup(outprefix + '.stations.txt', mode='w')
         header = ['name', 'network', 'lon', 'lat', 'npair', 'nday']
         f.write('\t'.join(header) + '\n')
@@ -2324,7 +2375,7 @@ def get_merged_trace(station, date, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL
             st.remove(tr)
 
     # Data fill for current date
-    fill = psutils.get_fill(st, starttime=(t0- dt.timedelta(hours=8)),
+    fill = psutils.get_fill(st, starttime=(t0 - dt.timedelta(hours=8)),
                             endtime=t0 + dt.timedelta(hours=16))
     if fill < minfill:
         # not enough data
@@ -2404,8 +2455,7 @@ def preprocess_trace(trace, trimmer=None, paz=None, resp_file_path=None,
                      corners=CORNERS, zerophase=ZEROPHASE,
                      period_resample=PERIOD_RESAMPLE,
                      onebit_norm=ONEBIT_NORM,
-                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ,
-                     verbose=False):
+                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ):
     """
     Preprocesses a trace (so that it is ready to be cross-correlated),
     by applying the following steps:
@@ -2476,15 +2526,14 @@ def preprocess_trace(trace, trimmer=None, paz=None, resp_file_path=None,
         psutils.resample(trace, dt_resample=period_resample)
         trace.remove_response(output="VEL", zero_mean=True)
 
-# trim teleseismic surface wave waveform from seismic records
-    print(trace)
+    # trim teleseismic surface wave waveform from seismic records
     if trimmer:
         trimmer.get_waveform(trace)
-    print(trace)
     # trimming, demeaning, detrending
     midt = trace.stats.starttime + (trace.stats.endtime -
                                     trace.stats.starttime) / 2.0
-    t0 = UTCDateTime(midt.date)  # date of trace, at time 00h00m00s - Beijing Time
+    # date of trace, at time 00h00m00s - Beijing Time
+    t0 = UTCDateTime(midt.date)
     trace.trim(starttime=(t0 - dt.timedelta(hours=8)),
                endtime=t0 + dt.timedelta(days=16))
     trace.detrend(type='constant')
@@ -2506,8 +2555,8 @@ def preprocess_trace(trace, trimmer=None, paz=None, resp_file_path=None,
                  freqmax=freqmax,
                  corners=corners,
                  zerophase=zerophase)
-    if verbose:
-        logger.info(colored("Fundamental preprocess {}".format(dt.datetime.now()-tstart),'red'))
+    logger.debug(colored("Fundamental preprocess {}".format(dt.datetime.now()
+                                                            - tstart), 'red'))
     # ==================
     # Time normalization
     # ==================
@@ -2545,8 +2594,9 @@ def preprocess_trace(trace, trimmer=None, paz=None, resp_file_path=None,
 
         # time-normalization
         trace.data /= tnorm_w
-        if verbose:
-            logger.info(colored("time normalization {}".format(dt.datetime.now()-tstart), 'red'))
+
+        logger.debug(colored("time normalization {}".format(dt.datetime.now()
+                                                            - tstart), 'red'))
 
         tstart = dt.datetime.now()
         # ==================
@@ -2569,10 +2619,11 @@ def preprocess_trace(trace, trimmer=None, paz=None, resp_file_path=None,
     # Verifying that we don't have nan in trace data
     if np.any(np.isnan(trace.data)):
         raise pserrors.CannotPreprocess("Got NaN in trace data")
-    if verbose:
-        logger.info(colored("spectral normalization {}".format(dt.datetime.now()-tstart), 'red'))
+    logger.debug(colored("spectral normalization {}".format(dt.datetime.now()
+                                                            - tstart), 'red'))
 
-def RESP_remove_response(trace,resp_filelist,freqmin,freqcora,freqcorb,freqmax):
+
+def RESP_remove_response(trace, resp_filelist, freqmin, freqcora, freqcorb, freqmax):
     """
     remove instrument response with resp files
 
@@ -2585,20 +2636,21 @@ def RESP_remove_response(trace,resp_filelist,freqmin,freqcora,freqcorb,freqmax):
     """
     station_name = trace.stats.station
     channel_name = trace.stats.channel
-    resp_time = trace.stats.starttime+dt.timedelta(days=1)
-    year_month_day = str(resp_time.year)+"{:0>2d}".format(resp_time.month)+"{:0>2d}".format(resp_time.day)
+    resp_time = trace.stats.starttime + dt.timedelta(days=1)
+    year_month_day = str(
+        resp_time.year) + "{:0>2d}".format(resp_time.month) + "{:0>2d}".format(resp_time.day)
 
     if not (trace and resp_filelist):
         logger.error("No trace or resp files!")
         return
     # find resp file corresponding to this trace
     for resp_file in resp_filelist:
-        Exist = re.search(station_name,str(resp_file)) and re.search(channel_name, \
-                    str(resp_file))  and re.search(year_month_day,str(resp_file))
+        Exist = re.search(station_name, str(resp_file)) and re.search(channel_name,
+                                                                      str(resp_file)) and re.search(year_month_day, str(resp_file))
         if Exist:
             # define a filter band to prevent amplifying noise during the
             # deconvolution
-            pre_filt = (freqmin,freqcora,freqcorb,freqmax)
+            pre_filt = (freqmin, freqcora, freqcorb, freqmax)
 
             # This can be the date of your raw data or any date for which the
             # SEED RESP-file is valid
@@ -2607,17 +2659,19 @@ def RESP_remove_response(trace,resp_filelist,freqmin,freqcora,freqcorb,freqmax):
                 logger.info("RESP file {0} Exists".format(resp_file))
 
             # Create the seedresp
-            seedresp = {'filename':str(resp_file),#RESP filename
+            seedresp = {'filename': str(resp_file),  # RESP filename
                         # when using Trace/Stream.simulate() the "date" parameter
                         # can also be omitted, and the starttimes of the trace
                         # then used.
-                        'date':date,
+                        'date': date,
                         # Units to return response in ('DIS','VEL' or ACC)
-                        'units':'VEL'
+                        'units': 'VEL'
                         }
-            trace.simulate(paz_remove=None,pre_filt=pre_filt,seedresp=seedresp)
+            trace.simulate(paz_remove=None, pre_filt=pre_filt,
+                           seedresp=seedresp)
             logger.info("Instrument response has been removed")
             return trace
+
 
 def SACPZ_remove_response(trace, resp_filelist, freqmin, freqcora,
                           freqcorb, freqmax, verbose=False):
@@ -2652,12 +2706,12 @@ def SACPZ_remove_response(trace, resp_filelist, freqmin, freqcora,
         return None
 
     # remove instrument response
-    pre_filt = [freqmin,freqcora,freqcorb,freqmax]
+    pre_filt = [freqmin, freqcora, freqcorb, freqmax]
     paz_remove = Get_paz_remove(filename=resp_file)
     df = trace.stats.sampling_rate
     # add a function to Read SACPZ file
     trace.data = simulate_seismometer(trace.data, df, paz_remove=paz_remove,
-                                              pre_filt=pre_filt)
+                                      pre_filt=pre_filt)
     s = "{} Instrument response has been removed".format(station_name)
     logger.info(s)
     return trace
@@ -2670,7 +2724,7 @@ def Get_paz_remove(filename=None):
     filename @str : full director and name of response file
     instrument @dict: dict of sensitivity,poles,zeros and gain
     """
-    XJ_file = open(filename,'r')
+    XJ_file = open(filename, 'r')
     All_info = XJ_file.readlines()
 
     poles = []
@@ -2679,29 +2733,30 @@ def Get_paz_remove(filename=None):
 
         line_str = "".join(line)
         # obtain sensitivity
-        if re.search("SENSITIVITY",line_str):
-            sensitivity = float( "".join( line_str.split()[1:2] ) )
+        if re.search("SENSITIVITY", line_str):
+            sensitivity = float("".join(line_str.split()[1:2]))
 
         # obtain gain
-        if re.search("AO",line_str):
-            gain = float( "".join( line_str.split()[1:2] ) )
+        if re.search("AO", line_str):
+            gain = float("".join(line_str.split()[1:2]))
 
         # obtain poles
-        if re.search('POLE_\d',line_str):
-            real_part = float( "".join( line_str.split()[1:2] ) )
-            imag_part = float( "".join( line_str.split()[2:3] ) )
-            poles.append((complex(real_part,imag_part)))
+        if re.search('POLE_\d', line_str):
+            real_part = float("".join(line_str.split()[1:2]))
+            imag_part = float("".join(line_str.split()[2:3]))
+            poles.append((complex(real_part, imag_part)))
 
         # obtain zeros
-        if re.search('ZERO_\d',line_str):
-            real_part = float( "".join( line_str.split()[1:2] ) )
-            imag_part = float( "".join( line_str.split()[2:3] ) )
-            zeros.append(complex(real_part,imag_part))
+        if re.search('ZERO_\d', line_str):
+            real_part = float("".join(line_str.split()[1:2]))
+            imag_part = float("".join(line_str.split()[2:3]))
+            zeros.append(complex(real_part, imag_part))
 
     instrument = {'gain': gain, 'poles': poles, 'sensitivity': sensitivity,
                   'zeros': zeros}
     XJ_file.close()
     return instrument
+
 
 def load_pickled_xcorr(pickle_file):
     """
@@ -2738,7 +2793,7 @@ def load_pickled_xcorr_interactive(xcorr_dir=CROSSCORR_DIR, xcorr_files='xcorr*.
     elif len(flist) > 0:
         logger.info('Select file containing cross-correlations:')
         logger.info('\n'.join('{i} - {f}'.format(i=i, f=os.path.basename(f))
-                        for (i, f) in enumerate(flist)))
+                              for (i, f) in enumerate(flist)))
         i = int(eval(input('\n')))
         pickle_file = flist[i]
 
@@ -2898,8 +2953,11 @@ def extract_dispcurve(amplmatrix, velocities, periodmask=None, varray_init=None,
 
             # we select the (v, ampl) curve for which the jump wrt previous
             # v (not nan) is minimum
-            lastv = lambda varray: varray[:iperiod][~np.isnan(varray[:iperiod])][-1]
-            vjump = lambda varray_amplarray: abs(lastv(varray_amplarray[0]) - v)
+            def lastv(varray): return varray[:iperiod][~np.isnan(
+                varray[:iperiod])][-1]
+
+            def vjump(varray_amplarray): return abs(
+                lastv(varray_amplarray[0]) - v)
             varray, amplarray = min(v_ampl_arrays, key=vjump)
 
             # if the curve already has a vel attributed at this period, we
@@ -2919,7 +2977,8 @@ def extract_dispcurve(amplmatrix, velocities, periodmask=None, varray_init=None,
             # inserting vel (which locally maximizes amplitude) for which
             # the jump wrt the previous (not nan) v of the curve is minimum
             lastv = varray[:iperiod][~np.isnan(varray[:iperiod])][-1]
-            vjump = lambda arg: abs(lastv - velocities[arg])
+
+            def vjump(arg): return abs(lastv - velocities[arg])
             argmax = min(argsmax, key=vjump)
             varray[iperiod] = velocities[argmax]
             amplarray[iperiod] = amplmatrix[iperiod, argmax]
@@ -2985,8 +3044,10 @@ def optimize_dispcurve(amplmatrix, velocities, vg0, periodmask=None,
     # function that returns the amplitude curve
     # a given input vel curve goes through
     ixperiods = np.arange(nperiods)
-    amplcurvefunc2d = RectBivariateSpline(ixperiods, velocities, amplmatrix, kx=1, ky=1)
-    amplcurvefunc = lambda vgcurve: amplcurvefunc2d.ev(ixperiods, vgcurve)
+    amplcurvefunc2d = RectBivariateSpline(
+        ixperiods, velocities, amplmatrix, kx=1, ky=1)
+
+    def amplcurvefunc(vgcurve): return amplcurvefunc2d.ev(ixperiods, vgcurve)
 
     def funcmin(varray):
         """
@@ -3041,11 +3102,11 @@ def dispcurve_penaltyfunc(vgarray, amplarray, strength_smoothing=STRENGTH_SMOOTH
     sumamplitude = amplarray.sum()
 
     # vg curve must maximize amplitude and minimize jumps
-    return -sumamplitude + strength_smoothing*sumdvg2
+    return -sumamplitude + strength_smoothing * sumdvg2
 
 
 if __name__ == '__main__':
     # loading pickled cross-correlations
     xc = load_pickled_xcorr_interactive()
-    print ("Cross-correlations available in variable 'xc':")
-    print (xc)
+    print("Cross-correlations available in variable 'xc':")
+    print(xc)
