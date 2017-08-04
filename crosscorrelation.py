@@ -197,12 +197,13 @@ OUTBASENAME_PARTS = [
     '1bitnorm' if ONEBIT_NORM else None,
     '+'.join(responsefrom)
 ]
-OUTFILESPATH = os.path.join(CROSSCORR_DIR, '_'.join(
+OUTFILESPATHORI = os.path.join(CROSSCORR_DIR, '_'.join(
     p for p in OUTBASENAME_PARTS if p))
 msg = 'Default name of output files (without extension):\n"{}"\n'.format(
-    OUTFILESPATH)
+    OUTFILESPATHORI)
 logger.info(msg)
 
+"""
 # import arguments
 suffix = sys.argv[1]
 if suffix:
@@ -210,7 +211,7 @@ if suffix:
 msg = 'Results will be exported to files:\n"{}"(+ extension)\n'.format(
     OUTFILESPATH)
 logger.info(msg)
-
+"""
 # ============
 # Main program
 # ============
@@ -292,11 +293,17 @@ for date in dates:
 
     # exporting the collection of cross-correlations after the end of each
     # processed month (allows to restart after a crash from that date)
-    if date.day == 1:
-        with open('{}.part.dill'.format(OUTFILESPATH), 'wb') as f:
-            msg = "Exporting cross-correlations calculated until now to: \n " + f.name
+    if date.day == 1 and xc:
+        lastmonth = date - dt.timedelta(days=1)
+        OUTFILESPATH = "{}_{}".format(OUTFILESPATHORI, lastmonth.strftime("%Y%m"))
+        with open('{}.dill'.format(OUTFILESPATH), 'wb') as f:
+            msg = "Exporting cross-correlations calculated to: \n " + f.name
             logger.info(msg)
             dill.dump(xc, f, protocol=4)
+        del xc
+        xc = pscrosscorr.CrossCorrelationCollection()
+
+
 
     logger.info("Processing data of day {}".format(date))
 
@@ -510,7 +517,7 @@ for date in dates:
             beween two traces
             """
             (s1, tr1), (s2, tr2) = pair
-            logger.info('{}-{} '.format(s1, s2))
+            logger.debug('{}-{} '.format(s1, s2))
             shift = int(CROSSCORR_TMAX / PERIOD_RESAMPLE)
             xcorr = obspy.signal.cross_correlation.correlate(
                 tr1, tr2, shift=shift)
@@ -530,12 +537,15 @@ for date in dates:
            xcorr_tmax=CROSSCORR_TMAX,
            xcorrdict=xcorrdict,
            verbose=not MULTIPROCESSING['cross-corr'])
+    del tracedict
+    del xcorrdict
 
     delta = (dt.datetime.now() - t0).total_seconds()
     msg = "Calculated and stacked cross-correlations in {:.1f} seconds".format(
         delta)
     logger.info(msg)
 
+"""
 t0 = dt.datetime.now()
 # exporting cross-correlations
 if not xc.pairs():
@@ -553,3 +563,4 @@ try:
     os.remove('{}.part.dill'.format(OUTFILESPATH))
 except:
     pass
+"""

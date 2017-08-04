@@ -270,6 +270,7 @@ class CrossCorrelation:
         self.endday = max(self.endday, endday) if self.endday else endday
         self.nday += 1
 
+        """
         # stacking cross-corr over single month
         month = MonthYear((tr1.stats.starttime + ONESEC).date)
         try:
@@ -289,6 +290,7 @@ class CrossCorrelation:
             else:
                 monthxc.dataarray += xcorr[:-1]
         monthxc.nday += 1
+        """
 
         # updating (adding) locs and ids
         self.locs1.add(tr1.stats.location)

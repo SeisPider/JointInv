@@ -82,10 +82,10 @@ MSEED_DIR = /run/media/seispider/Seagate Backup Plus Drive/CENC
 STATIONXML_DIR = null
 DATALESS_DIR = null
 RESP_DIR = null
-SACPZ_DIR = ../../Projects/China/response/CSNPZ_2016
+SACPZ_DIR = ../CSNPZ_2016
 STATIONINFO_DIR = ./info/station.info
 CATALOG_DIR = ./info/catalog.csv
-EQWAVEFORM_DIR = ../../Projects/China/EQPROCE/DATA
+EQWAVEFORM_DIR = ../Events
 
 
 CROSSCORR_DIR = ./output/cross_correlation 
@@ -166,10 +166,10 @@ USE_COMBINATION = True
 USE_COMBINATION_RESP = False        
 # Use resp to combination else use sac PZ files
 
-FIRSTDAY = 30/5/2016                 
+FIRSTDAY = 20/1/2016                 
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 3/6/2016                 
+LASTDAY = 3/2/2016                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.99                      
