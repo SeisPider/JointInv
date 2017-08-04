@@ -98,6 +98,7 @@ import warnings
 import datetime as dt
 import itertools as it
 import pickle
+import dill
 import obspy.signal.cross_correlation
 from termcolor import colored
 
@@ -292,11 +293,10 @@ for date in dates:
     # exporting the collection of cross-correlations after the end of each
     # processed month (allows to restart after a crash from that date)
     if date.day == 1:
-        with open('{}.part.pickle'.format(OUTFILESPATH), 'wb') as f:
-
+        with open('{}.part.dill'.format(OUTFILESPATH), 'wb') as f:
             msg = "Exporting cross-correlations calculated until now to: \n " + f.name
             logger.info(msg)
-            pickle.dump(xc, f, protocol=2)
+            dill.dump(xc, f, protocol=4)
 
     logger.info("Processing data of day {}".format(date))
 
@@ -542,7 +542,7 @@ if not xc.pairs():
     logger.info("No cross-correlation could be calculated: nothing to export!")
 else:
     # exporting to binary and ascii files
-    xc.export(outprefix=OUTFILESPATH, stations=stations, verbose=True)
+    xc.export(outprefix=OUTFILESPATH, onlydill=True)
 
 logger.info(colored("After stacking process {}".format(
     dt.datetime.now() - t0), 'red'))
@@ -550,6 +550,6 @@ logger.info(
     colored("Second / month * pair {}".format(dt.datetime.now() - tstart), 'red'))
 # removing file containing periodical exports of cross-corrs
 try:
-    os.remove('{}.part.pickle'.format(OUTFILESPATH))
+    os.remove('{}.part.dill'.format(OUTFILESPATH))
 except:
     pass

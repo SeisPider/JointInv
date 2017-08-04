@@ -78,7 +78,7 @@
 # RESP.XJ.AKS.BHZ
 #
 #
-MSEED_DIR = /run/media/seispider/Seagate Backup Plus Drive
+MSEED_DIR = /run/media/seispider/Seagate Backup Plus Drive/CENC
 STATIONXML_DIR = null
 DATALESS_DIR = null
 RESP_DIR = null

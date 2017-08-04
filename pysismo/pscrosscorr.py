@@ -24,6 +24,7 @@ import os
 import shutil
 import glob
 import pickle
+import dill
 import copy
 from collections import OrderedDict
 import datetime as dt
@@ -2004,18 +2005,21 @@ class CrossCorrelationCollection(AttribDict):
         plt.ylim(bbox[2:])
         plt.show()
 
-    def export(self, outprefix, stations=None, verbose=False):
+    def export(self, outprefix, onlydill=False, stations=None, verbose=False):
         """
         Exports cross-correlations to picke file and txt file
 
         @type outprefix: str or unicode
         @type stations: list of L{Station}
         """
-        self._to_picklefile(outprefix, verbose=verbose)
-        self._to_ascii(outprefix, verbose=verbose)
-        self._pairsinfo_to_ascii(outprefix, verbose=verbose)
-        self._stationsinfo_to_ascii(
-            outprefix, stations=stations, verbose=verbose)
+        if onlydill:
+            self._to_dillfile(outprefix, verbose=verbose)
+        else:
+            self._to_picklefile(outprefix, verbose=verbose)
+            self._to_ascii(outprefix, verbose=verbose)
+            self._pairsinfo_to_ascii(outprefix, verbose=verbose)
+            self._stationsinfo_to_ascii(
+                outprefix, stations=stations, verbose=verbose)
 
     def FTANs(self, prefix=None, suffix='', whiten=False,
               normalize_ampl=True, logscale=True, mindist=None,
@@ -2177,6 +2181,20 @@ class CrossCorrelationCollection(AttribDict):
             stations.sort(key=lambda obj: obj.name)
 
         return stations
+    def _to_dillfile(self, outprefix, verbose=False):
+        """
+        Dumps cross-correlations to (binary) dill file
+
+        @type outprefix: str or unicode
+        """
+        if verbose:
+            s = "Exporting cross-correlations in binary format to file: {}.dill"
+            logger.info(s.format(outprefix))
+
+        f = psutils.openandbackup(outprefix + '.pickle', mode='wb')
+        dill.dump(self, f, protocol=4)
+        f.close()
+
 
     def _to_picklefile(self, outprefix, verbose=False):
         """
