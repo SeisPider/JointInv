@@ -93,6 +93,7 @@ The files, depending on their extension, contain the following data:
 from pysismo import pscrosscorr, pserrors, psstation, trimmer
 from pysismo.global_var import logger
 import os
+import gc
 import sys
 import warnings
 import datetime as dt
@@ -107,13 +108,15 @@ from termcolor import colored
 MULTIPROCESSING = {'merge trace': False,
                    'process trace': True,
                    'cross-corr': True}
-# how many concurrent processes? (set None to let multiprocessing module
+# how many concurreint processes? (set None to let multiprocessing module
 # decide)
 NB_PROCESSES = None
 if any(MULTIPROCESSING.values()):
     import multiprocessing as mp
     mp.freeze_support()  # for Windows...
 
+# start automatic garbage collection
+gc.enable()
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================
@@ -272,6 +275,7 @@ if CROSS_STATIONS_DELETE:
             logger.info(colored("Delete {} ".format(station.name), 'red'))
             continue
         stations.append(station)
+        del stations_all
 else:
     # Don't delete any station
     stations = stations_all
@@ -300,7 +304,10 @@ for date in dates:
             msg = "Exporting cross-correlations calculated to: \n " + f.name
             logger.info(msg)
             dill.dump(xc, f, protocol=4)
+
+        # free memory
         del xc
+        gc.collect()
         xc = pscrosscorr.CrossCorrelationCollection()
 
 
@@ -483,10 +490,11 @@ for date in dates:
             traces = [preprocessed_trace(tr, res, trim,
                                          resp_file_path=resp_file_path)
                       for tr, res, trim in list(zip(traces, responses, it.repeat(trimmer)))]
-
+    del responses
     # setting up dict of current date's traces, {station: trace}
     tracedict = {s.name: trace for s, trace in zip(
-        date_stations, traces) if trace}
+                                            date_stations, traces) if trace}
+    del traces
 
     delta = (dt.datetime.now() - t0).total_seconds()
     logger.info(
@@ -537,8 +545,11 @@ for date in dates:
            xcorr_tmax=CROSSCORR_TMAX,
            xcorrdict=xcorrdict,
            verbose=not MULTIPROCESSING['cross-corr'])
+    del xcorrs
+    del pairs
     del tracedict
     del xcorrdict
+    gc.collect()
 
     delta = (dt.datetime.now() - t0).total_seconds()
     msg = "Calculated and stacked cross-correlations in {:.1f} seconds".format(

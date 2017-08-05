@@ -166,21 +166,21 @@ USE_COMBINATION = True
 USE_COMBINATION_RESP = False        
 # Use resp to combination else use sac PZ files
 
-FIRSTDAY = 20/1/2016                 
+FIRSTDAY = 31/1/2016                 
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 3/2/2016                 
+LASTDAY = 1/2/2016                 
 # last day of cross-correlation (d/m/y)
 #
-MINFILL = 0.99                      
+MINFILL = 0.9                      
 # minimum data fill within day
-NETWORKS_SUBSET = ["XJ"]
+NETWORKS_SUBSET = null
 # constrain network
 CHANNELS_SUBSET = ["BHZ", "SHZ"]
 # constrain channel
 
 
-CROSSCORR_STATIONS_SUBSET = ["ALS", "WMQ"]   
+CROSSCORR_STATIONS_SUBSET = null   
 # subset of stations (null if all, else JSON list)
 CROSS_STATIONS_DELETE = null 
 # subset of stations (null if None, else JSON list)
@@ -191,7 +191,7 @@ CROSSCORR_SKIPLOCS = ["50"]
 
 PERIODMIN = 3.0                     
 # bandpass parameters
-PERIODMAX = 200.0
+PERIODMAX = 120.0
 CORNERS = 2
 ZEROPHASE = True
 PERIOD_RESAMPLE = 1.0               

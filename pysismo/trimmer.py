@@ -272,7 +272,7 @@ class Trimmer(object):
                 events += self.events[trdateend]
         stationid = ".".join([trace.stats.network, trace.stats.station])
 
-        logger.info("{} events in -> {}-{}".format(len(events), trdatestart,
+        logger.debug("{} events in -> {}-{}".format(len(events), trdatestart,
                                                    trdateend))
 
         msg = "trdatestart-trdateend -> {}-{}".format(trdatestart, trdateend)
