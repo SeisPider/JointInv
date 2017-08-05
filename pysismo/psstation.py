@@ -19,7 +19,8 @@ import numpy as np
 # parsing configuration file to import some parameters
 # ====================================================
 from .psconfig import (MSEED_DIR, STATIONXML_DIR, DATALESS_DIR, RESP_DIR,
-                  SACPZ_DIR, STATIONINFO_DIR, NETWORKS_SUBSET, CHANNELS_SUBSET)
+                       SACPZ_DIR, ALTERNATIVE_SACPZ_DIR, STATIONINFO_DIR,
+                       NETWORKS_SUBSET, CHANNELS_SUBSET)
 from .global_var import logger
 
 class Station:
@@ -401,17 +402,18 @@ def get_SACPZ_filelists(resp_filepath=SACPZ_DIR, verbose=True):
     resp_file_path = {}
 
     # list of SAC_PZ files
-    flist = glob.glob(pathname=os.path.join(resp_filepath, "SAC_PZs*"))
+    flist = glob.glob(pathname=os.path.join(resp_filepath, "SAC_PZ*"))
 
     if verbose:
         if flist:
             logger.info("Scanning SAC PZ files")
         else:
-            s = u"Could not find any SAC PZ file (SAC_PZs_) in dir:{}!"
+            s = u"Could not find any SAC PZ file (SAC_PZs*) in dir:{}!"
             logger.info(s.format(resp_filepath))
 
     for f in flist:
         net, sta, chn, loc = os.path.basename(f).split('_')[2:6]
+        #net, sta, loc, chn = os.path.basename(f).split('.')[0:4]
         responseid = ".".join([net, sta, loc, chn])
         single_file = {responseid: f}
         if verbose:

@@ -47,7 +47,7 @@ plt.ioff()  # turning off interactive mode
 from .psconfig import (
     CROSSCORR_DIR, FTAN_DIR, PERIOD_BANDS, CROSSCORR_TMAX, PERIOD_RESAMPLE,
     CROSSCORR_SKIPLOCS, MINFILL, FREQMIN, FREQMAX, CORNERS, ZEROPHASE,
-    USE_COMBINATION_RESP,
+    USE_COMBINATION_RESP, ALTERNATIVE_SACPZ_DIR,
     ONEBIT_NORM, FREQMIN_EARTHQUAKE, FREQMAX_EARTHQUAKE, WINDOW_TIME, WINDOW_FREQ,
     SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX, SIGNAL2NOISE_TRAIL, NOISE_WINDOW_SIZE,
     RAWFTAN_PERIODS, CLEANFTAN_PERIODS, FTAN_VELOCITIES, FTAN_ALPHA, STRENGTH_SMOOTHING,
@@ -2429,7 +2429,18 @@ def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=(),
     @type xml_inventories: list of L{obspy.station.inventory.Inventory}
     @type resp_file_path: dictionary of response file path
     """
+    # find in CSNPZ_2016 first
+    # if not find then try to find it in CSNPZ
     if resp_file_path:
+
+        if trace.id not in resp_file_path.keys():
+            filepath = os.path.join(ALTERNATIVE_SACPZ_DIR, trace.id+".sacpz")
+            print(filepath)
+            if not os.path.isfile(filepath):
+                logger.error("no alternative response for {}".format(trace.id))
+                raise pserrors.CannotPreprocess("No response found")
+            attach_paz(trace, filepath, tovel=True)
+            return 'self'
         try:
             # try to attach response from SACPZ file
             attach_paz(trace, resp_file_path[trace.id], tovel=True)
