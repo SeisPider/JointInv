@@ -82,8 +82,8 @@ MSEED_DIR = /run/media/seispider/Seagate Backup Plus Drive/CENC
 STATIONXML_DIR = null
 DATALESS_DIR = null
 RESP_DIR = null
-SACPZ_DIR = ../CSNPZ_2016
-ALTERNATIVE_SACPZ_DIR = ../CSNPZ
+SACPZ_DIR = ./info/CSNPZ_2016
+ALTERNATIVE_SACPZ_DIR = ./info/CSNPZ
 STATIONINFO_DIR = ./info/station.info
 CATALOG_DIR = ./info/catalog.csv
 EQWAVEFORM_DIR = ../Events
@@ -92,6 +92,7 @@ EQWAVEFORM_DIR = ../Events
 CROSSCORR_DIR = ./output/cross_correlation 
 # dir of cross-correlation results
 FTAN_DIR = ./output/FTAN         
+TELESEISMIC_DISPERSION_DIR = ./output/teleseismic_dispersion         
 # dir of FTAN results (including dispersion curves)
 TOMO_DIR = ./output/tomography              
 # dir of tomographic inversion results
@@ -167,10 +168,10 @@ USE_COMBINATION = True
 USE_COMBINATION_RESP = False        
 # Use resp to combination else use sac PZ files
 
-FIRSTDAY = 31/1/2016                 
+FIRSTDAY = 26/6/2016                 
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 1/2/2016                 
+LASTDAY = 26/6/2016                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.9                      
@@ -249,7 +250,7 @@ FTAN_VELOCITIES_STARTSTOPSTEP = [2.0, 5.51, 0.01]
 #
 # where f is the frequency and f0 the center frequency of the filter.
 
-FTAN_ALPHA = 20
+FTAN_ALPHA = 1
 
 # relative strength of the smoothing term in the penalty function that
 # the dispersion curve seeks to minimize

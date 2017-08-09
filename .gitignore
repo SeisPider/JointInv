@@ -4,7 +4,8 @@ EQPROCE/
 node_modules
 package.json
 package-lock.json
-/info/POLES_ZEROS_file/
+/info/CSNPZ
+/info/CSNPZ_2016/
 *.info
 tests/
 output/

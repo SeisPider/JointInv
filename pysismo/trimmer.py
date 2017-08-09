@@ -89,68 +89,10 @@ class Trimmer(object):
         :type velomax : int or float
         """
         self.sacdir = sacdir
-        self.stations = self._read_stations(stationinfo)
-        self.events = self._read_catalog(catalog)
+        self.stations = read_stations(stationinfo)
+        self.events = read_catalog(catalog)
         self.by_speed = {"maximum": velomax, "minimum": velomin}
 
-    def _read_catalog(self, catalog):
-        '''
-        Read event catalog.
-
-        Format of event catalog:
-            origin  latitude  longitude  depth  magnitude  magnitude_type
-
-        Example:
-
-            2016-01-03T23:05:22.270  24.8036   93.6505  55.0 6.7  mww
-        '''
-        events = {}
-        with open(catalog) as f:
-            for line in f:
-                origin, latitude, longitude, depth, magnitude = line.split()[
-                    0:5]
-                origindate = UTCDateTime(origin).strftime("%Y%m%d")
-
-                if origindate not in events.keys():
-                    subevent = {"origin": UTCDateTime(origin),
-                                "latitude": float(latitude),
-                                "longitude": float(longitude),
-                                "depth": float(depth),
-                                "magnitude": float(magnitude)}
-
-                    event = {origindate: [subevent]}
-                    events.update(event)
-                else:
-                    subevent = {"origin": UTCDateTime(origin),
-                                "latitude": float(latitude),
-                                "longitude": float(longitude),
-                                "depth": float(depth),
-                                "magnitude": float(magnitude)}
-                    events[origindate].append(subevent)
-        return events
-
-    def _read_stations(self, stationinfo):
-        """
-        Read station information from station metadata file.
-
-        Format of station information:
-
-            NET.STA  latitude  longitude  elevation
-        """
-        stations = {}
-        with open(stationinfo, "r") as f:
-            for line in f:
-                name, stla, stlo, stel = line.split()[0:4]
-                station = {
-                    name: {
-                        "stla": float(stla),
-                        "stlo": float(stlo),
-                        "stel": float(stel)
-                    }
-                }
-                stations.update(station)
-        logger.info("%d stations found.", len(stations))
-        return stations
 
     def _writesac(self, stream, event, station, outdir):
         """
@@ -324,3 +266,62 @@ class Trimmer(object):
         View information of station based on provided station name
         """
         return [sta for sta in self.stations if re.search(sta_nm, sta['name'])]
+
+def read_catalog(catalog):
+    '''
+    Read event catalog.
+
+    Format of event catalog:
+        origin  latitude  longitude  depth  magnitude  magnitude_type
+
+    Example:
+
+        2016-01-03T23:05:22.270  24.8036   93.6505  55.0 6.7  mww
+    '''
+    events = {}
+    with open(catalog) as f:
+        for line in f:
+            origin, latitude, longitude, depth, magnitude = line.split()[
+                0:5]
+            origindate = UTCDateTime(origin).strftime("%Y%m%d")
+
+            if origindate not in events.keys():
+                subevent = {"origin": UTCDateTime(origin),
+                            "latitude": float(latitude),
+                            "longitude": float(longitude),
+                            "depth": float(depth),
+                            "magnitude": float(magnitude)}
+
+                event = {origindate: [subevent]}
+                events.update(event)
+            else:
+                subevent = {"origin": UTCDateTime(origin),
+                            "latitude": float(latitude),
+                            "longitude": float(longitude),
+                            "depth": float(depth),
+                            "magnitude": float(magnitude)}
+                events[origindate].append(subevent)
+    return events
+
+def read_stations(stationinfo):
+    """
+    Read station information from station metadata file.
+
+    Format of station information:
+
+        NET.STA  latitude  longitude  elevation
+    """
+    stations = {}
+    with open(stationinfo, "r") as f:
+        for line in f:
+            name, stla, stlo, stel = line.split()[0:4]
+            station = {
+                        name: {
+                                "stla": float(stla),
+                                "stlo": float(stlo),
+                                "stel": float(stel)
+                              }
+                      }
+            stations.update(station)
+    logger.info("%d stations in database.", len(stations))
+    return stations

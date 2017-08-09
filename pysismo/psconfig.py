@@ -69,6 +69,7 @@ EQWAVEFORM_DIR = config.get('paths','EQWAVEFORM_DIR')
 # output dirs
 CROSSCORR_DIR = config.get('paths', 'CROSSCORR_DIR')
 FTAN_DIR = config.get('paths', 'FTAN_DIR')
+TELESEISMIC_DISPERSION_DIR = config.get('paths', 'TELESEISMIC_DISPERSION_DIR')
 TOMO_DIR = config.get('paths', 'TOMO_DIR')
 DEPTHMODELS_DIR = config.get('paths', 'DEPTHMODELS_DIR')
 

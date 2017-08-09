@@ -40,3 +40,29 @@ class CannotPerformTomoInversion(Exception):
     """
     def __init__(self, *args, **kwargs):
         Exception.__init__(self, *args, **kwargs)
+class CannotMergeTraces(Exception):
+    """
+    Cannot merge data
+    """
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
+class TracesNotCorrected(Exception):
+    """
+    Trace didn't correctly remove response
+    """
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
+class CannotImportData(Exception):
+    """
+    Can not import teleseismic waveform
+    """
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
+
+class CannotMeasureDispersion(Exception):
+    """
+    Can not import teleseismic waveform
+    """
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
+
