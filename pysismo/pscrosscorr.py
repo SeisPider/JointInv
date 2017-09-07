@@ -257,10 +257,13 @@ class CrossCorrelation:
         try:
             self.dataarray += xcorr
         except ValueError:
-            if len(self.dataarray) > len(xcorr):
-                self.dataarray[:-1] += xcorr
+            length = len(self.dataarray)
+            if length > len(xcorr):
+                self.dataarray[np.arange(length)!=length//2] += xcorr
             else:
-                self.dataarray += xcorr[:-1]
+                self.dataarray = np.insert(self.dataarray, length//2, 0)
+                self.dataarray += xcorr
+
 
         # updating stats: 1st day, last day, nb of days of cross-corr
         startday = (tr1.stats.starttime + ONESEC).date
