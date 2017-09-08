@@ -77,7 +77,7 @@ else:
 
 # process traces and measure dispersion curves
 def measure_teleseismic_dispersion(tscombine, periods, alpha=FTAN_ALPHA,
-                                   shift_len=500.0):
+                                   shift_len=500.0, demoT=80):
     """
     Measure teleseismic fundamental Rayleigh wave dispersion and handle errors
 

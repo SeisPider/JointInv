@@ -11,6 +11,9 @@ and receiver function imaging.
 * [SeisPider](https://github.com/seispider)
 * [SeisMan](https://github.com/seisman)
 
+## Acknowlegement
+Project used library from [seismic noise tomography](https://github.com/bgoutorbe/seismic-noise-tomography)
+
 ## Licensing
 
 * MIT
