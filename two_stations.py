@@ -75,9 +75,11 @@ if MULTIPLEPROCESSING['Initialization']:
 else:
     combinations = [get_useable_combine(s) for s in judgements]
 
+
 # process traces and measure dispersion curves
 def measure_teleseismic_dispersion(tscombine, periods, alpha=FTAN_ALPHA,
-                                   shift_len=500.0):
+                                   shift_len=500.0, demoT=None):
+    
     """
     Measure teleseismic fundamental Rayleigh wave dispersion and handle errors
 
@@ -91,15 +93,19 @@ def measure_teleseismic_dispersion(tscombine, periods, alpha=FTAN_ALPHA,
     :type shift_len: float default `500.0`
     :param shift_len: time shift in cross-correlation [unit is second]
     """
+    
     logger.info("Measure dispersion curve of {}".format(tscombine.id))
 
     # debug
     logger.debug("Periods -> {}".format(len(periods)))
     logger.debug("alpha -> {}".format(alpha))
     logger.debug("shift -> {}".format(shift_len))
+    tscombine.measure_dispersion(periods=periods, alpha=alpha,
+                                 shift_len=shift_len, period=demoT)
+    
     try:
         tscombine.measure_dispersion(periods=periods, alpha=alpha,
-                                     shift_len=shift_len)
+                                     shift_len=shift_len, period=demoT)
         errmsg = None
     except pserrors.CannotMeasureDispersion as err:
         # can not measure
@@ -116,6 +122,7 @@ def measure_teleseismic_dispersion(tscombine, periods, alpha=FTAN_ALPHA,
                                               errmsg))
         tscombine = None
     return tscombine
+
 
 # Import periods that we interested in
 periods = np.arange(20, 100)

@@ -103,7 +103,7 @@ class Tscombine(object):
         if self.tr1.stats.sampling_rate != self.tr2.stats.sampling_rate:
             raise pserrors.CannotImportData('sampling rates are different')
 
-    def measure_dispersion(self, periods, alpha, shift_len):
+    def measure_dispersion(self, periods, alpha, shift_len, period):
         """
         estimate raw group velocity dispersion curves with FTAN and
         cross-correlation technique
@@ -121,7 +121,7 @@ class Tscombine(object):
         tr2 = self.tr2
 
         # measure dispersion curves of group velocity
-        reftime1, group_arr1 = measure_group_arrival(tr1, periods, alpha, debug=True)
+        reftime1, group_arr1 = measure_group_arrival(tr1, periods, alpha, period)
         reftime2, group_arr2 = measure_group_arrival(tr2, periods, alpha)
         if reftime1 != reftime2:
             logger.error("ReferenceTimeNotMatch")
@@ -133,20 +133,22 @@ class Tscombine(object):
 
         # apply isolation in time domain
         isotr1 = movement_windows_construction(tr1, periods, group_arr1,
-                                               reftime, debug=True)
+                                               reftime, period)
         isotr2 = movement_windows_construction(tr2, periods, group_arr2,
                                                reftime)
 
         logger.debug("Isotr1.{} - Isotr2.{}".format(len(isotr1), len(isotr2)))
 
         # filter traces separately based on kaiser windowed FIR filter
-        filttr1 = kaiser_windows_filter(tr1, isotr1, periods, debug=True)
+        filttr1 = kaiser_windows_filter(tr1, isotr1, periods, period)
         filttr2 = kaiser_windows_filter(tr2, isotr2, periods)
 
+        
         # TODO:attach spectral SNR here
         # apply cross-correlation technique and transfer period-delay
         # cross-correlatione functioni matrix to period-velocity matrix
-        veloscale, vmatrix = intersta_t_v_construct(tr1, tr2, filttr1, filttr2)
+        veloscale, vmatrix = intersta_t_v_construct(tr1, tr2, filttr1, filttr2,
+                                                    periods)
         self.veloscale = veloscale
         self.vmatrix = vmatrix
 
@@ -170,7 +172,7 @@ class Tscombine(object):
         leftpoint, rightpoint = self.local_maximum_tracking(refpoint=refpoint,
                                                             periods=periods)
         while (rightpoint):
-            _, rightpoint = self.local_maximum_tracking(refpoint=rightpoint,
+             rightpoint = self.local_maximum_tracking(refpoint=rightpoint,
                                                         periods=periods)
         while (leftpoint):
             _leftpoint, _ = self.local_maximum_tracking(refpoint=leftpoint,
@@ -205,7 +207,7 @@ class Tscombine(object):
             right_extremum = extremums_right[shift]
 
            # constrain the maximum and minimum must across approximate
-            # half-wave length
+           # half-wave length
             shift_time = shift * 1.0 / self.tr1.sampling_rate
             if float(shift_time) / float(periods[iperiod]) > 0.4:
                 phasevelo = max(xcorr[left_extremum], xcorr[right_extremum])
@@ -292,15 +294,18 @@ def intersta_t_v_construct(tr1, tr2, filttr1, filttr2, periods, rmaxv=7, rminv=2
         return None
 
     # calculate delay timescale
-    npoints = shift_len * tr1.stats.samplinmg_rate
+    npoints = int(shift_len * tr1.stats.sampling_rate)
     timescale = shift_len * np.arange(-npoints, npoints + 1) / float(npoints)
 
     # calculate inter-station distance
     dist, _, _ = gps2dist_azimuth(tr1.stats.sac.stla, tr1.stats.sac.stlo,
-                                  tr2.stats.sac.stla, tr2.stats.sca.stlo)
+                                  tr2.stats.sac.stla, tr2.stats.sac.stlo)
     dist /= 1000.0  # transfer meter into kilometer
-    veloscale = dist / timescale
 
+    veloscale = float(dist) / timescale[timescale!=0]
+    np.insert(veloscale, npoints, np.nan)
+    
+    print(dist)
     # interested velocity scale
     intersveloscale = np.arange(rminv, rmaxv, deltav)
 
@@ -314,14 +319,15 @@ def intersta_t_v_construct(tr1, tr2, filttr1, filttr2, periods, rmaxv=7, rminv=2
         splvector = correlation[maskarray]
         # normalize single cross-correlation functions
         splvector /= splvector.max()
+
         # interpolate cross-correlation function with cubic-spline method
         tck = interpolate.splrep(splvector, veloscale[maskarray], s=0)
         vmatrix[iperiod, :] = interpolate.splev(intersveloscale, tck, der=0)
     return intersveloscale, vmatrix
 
 
-def movement_windows_construction(tr, periods, group_arr, reftime, halfwidth=3,
-                                  debug=False):
+def movement_windows_construction(tr, periods, group_arr, reftime, period=None, 
+                                  halfwidth=3):
     """
     Apply movement windows based on eauqtion described in Huajian Yao, 2004
     # movement window construction
@@ -344,9 +350,9 @@ def movement_windows_construction(tr, periods, group_arr, reftime, halfwidth=3,
 
     w = np.zeros(shape=(len(periods), len(tr.data)))
     isotr = np.zeros(shape=(len(periods), len(tr.data)))
-    timescale = [tr.stats.starttime + x / tr.stats.sampling_rate
-                 for x in range(tr.stats.npts)]
-    timescale = np.array(timescale)
+    
+    timescale = np.array([tr.stats.starttime + x / tr.stats.sampling_rate
+                          for x in range(tr.stats.npts)])
     for iperiod, T0 in enumerate(periods):
         #  mask array construction
         Tturna = group_arr[iperiod] - halfwidth * T0
@@ -367,13 +373,13 @@ def movement_windows_construction(tr, periods, group_arr, reftime, halfwidth=3,
                                             - halfwidth * T0) / T0
                                            )
         isotr[iperiod, :] = tr.data * w[iperiod, :]
-    if debug:
-        period = 80
+
+    if period:
         logger.debug("period -> {}".format(period))
         plot_isolation(tr.data, isotr, w, timescale, periods, period)
     return isotr
 
-def plot_isolation(raw, isotr, w, timescale, periods, period):
+def plot_isolation(raw, isotr, w, timescale, periods, period=None):
     """
     Plot comparation of raw data and isolated data
 
@@ -392,8 +398,7 @@ def plot_isolation(raw, isotr, w, timescale, periods, period):
         if T0 == period:
             iso = isotr[iperiod, :]
             weight = w[iperiod, :]
-
-
+    
     relativetime = timescale - timescale[0]
     f, ax1 = plt.subplots()
     ax1.plot(relativetime, raw, 'b-', linewidth=2, label="Raw")
@@ -408,8 +413,8 @@ def plot_isolation(raw, isotr, w, timescale, periods, period):
     plt.show()
 
 
-def kaiser_windows_filter(tr, isotr, periods, window=('kaiser', 9.0),
-                          deltaT=PERIOD_RESAMPLE, debug=False):
+def kaiser_windows_filter(tr, isotr, periods, period=None,
+                          window=('kaiser', 9.0), deltaT=PERIOD_RESAMPLE):
     """
     Apply FIR filter with kaiser window
 
@@ -419,6 +424,8 @@ def kaiser_windows_filter(tr, isotr, periods, window=('kaiser', 9.0),
     :param isotr: matrix contains isolated waveform
     :type periods: numpy array
     :param periods: contains various periods
+    :type period: float 
+    :param period: demo period
     :type window: tuple
     :param window: window for setting kaiser filter
     :type deltaT: int or float
@@ -428,8 +435,6 @@ def kaiser_windows_filter(tr, isotr, periods, window=('kaiser', 9.0),
 
     nyq = tr.stats.sampling_rate / 2.0
     ntaps = 2 ** math.ceil(math.log(tr.stats.sac.npts, 2))
-    if debug:
-        print(nyq, ntaps)
     for iperiod, T0 in enumerate(periods):
         lowcut = 1.0 / (T0 + 0.2 * deltaT / 2.0)
         highcut = 1.0 / (T0 - 0.2 * deltaT / 2.0)
@@ -438,11 +443,36 @@ def kaiser_windows_filter(tr, isotr, periods, window=('kaiser', 9.0),
                         nyq=nyq, pass_zero=False)
         conv_result[iperiod, :] = sig_convolve(isotr[iperiod, :], window,
                                                mode='same')
+        if period == T0:
+            plot_kaiser_demo(isotr[iperiod, :], conv_result[iperiod,:], period)
     logger.info("Kaiser window filter applied Suc.!")
     return conv_result
+def plot_kaiser_demo(signal, filtered, period):
+    """
+    Plot kaiser filtered result at specific period
+
+    :type signal: numpy array
+    :param signal: raw signal to be filtered
+    :type filtered: numpy array
+    :param filtered: filtered signal
+    :type period: float
+    :param period: demo period
+    """
+    relativetime = np.arange(len(signal))
+
+    f, ax1 = plt.subplots()
+    ax1.plot(relativetime, signal, 'b-', linewidth=2)
+    ax1.set_xlabel("Raltive Time [s]")
+    ax1.set_ylabel("Amp")
+    # plot weight window
+    ax2 = ax1.twinx()
+    ax2.plot(relativetime, filtered, 'r-', linewidth=2)
+    f.tight_layout()
+    plt.show()
+    
 
 
-def measure_group_arrival(tr, periods, alpha=FTAN_ALPHA, debug=False):
+def measure_group_arrival(tr, periods, alpha=FTAN_ALPHA, period=None):
     """
     estimate dispersion curve of group velocity and isolate the stations
     """
@@ -458,8 +488,7 @@ def measure_group_arrival(tr, periods, alpha=FTAN_ALPHA, debug=False):
     group_arrival = [starttime+amp[iperiod,:].argmax()*dt
                      for iperiod in range(len(periods))]
     # debug
-    if debug:
-        period = 80
+    if period:
         plot_analytical_amp(amp, periods, period, starttime, dt)
     logger.debug("reftime -> {}".format(reftime))
     return reftime, group_arrival
