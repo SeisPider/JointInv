@@ -168,10 +168,10 @@ USE_COMBINATION = True
 USE_COMBINATION_RESP = False        
 # Use resp to combination else use sac PZ files
 
-FIRSTDAY = 4/9/2016                 
+FIRSTDAY = 17/6/2015                
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 5/9/2016                 
+LASTDAY = 18/6/2015                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.9                      
@@ -250,7 +250,7 @@ FTAN_VELOCITIES_STARTSTOPSTEP = [2.0, 5.51, 0.01]
 #
 # where f is the frequency and f0 the center frequency of the filter.
 
-FTAN_ALPHA = 1
+FTAN_ALPHA =200 
 
 # relative strength of the smoothing term in the penalty function that
 # the dispersion curve seeks to minimize

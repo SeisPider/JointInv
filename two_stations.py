@@ -78,7 +78,7 @@ else:
 
 # process traces and measure dispersion curves
 def measure_teleseismic_dispersion(tscombine, periods, alpha=FTAN_ALPHA,
-                                   shift_len=500.0, demoT=None):
+                                   shift_len=500.0, demoT=None, test=False):
     
     """
     Measure teleseismic fundamental Rayleigh wave dispersion and handle errors
@@ -100,8 +100,14 @@ def measure_teleseismic_dispersion(tscombine, periods, alpha=FTAN_ALPHA,
     logger.debug("Periods -> {}".format(len(periods)))
     logger.debug("alpha -> {}".format(alpha))
     logger.debug("shift -> {}".format(shift_len))
-    tscombine.measure_dispersion(periods=periods, alpha=alpha,
-                                 shift_len=shift_len, period=demoT)
+    
+    
+    if test:
+        if tscombine.id != "XJ.LHG-XJ.SMY-20150617125132":
+            return
+
+   # tscombine.measure_dispersion(periods=periods, alpha=alpha,
+   #                              shift_len=shift_len, period=demoT)
     
     try:
         tscombine.measure_dispersion(periods=periods, alpha=alpha,
