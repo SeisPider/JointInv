@@ -15,4 +15,4 @@ Dependence
 
 LICENCE
 =======
-`MIT<https://github.com/thomaspark/bootswatch/blob/gh-pages/LICENSE>`_
+MIT: https://github.com/thomaspark/bootswatch/blob/gh-pages/LICENSE
