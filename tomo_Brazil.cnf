@@ -168,10 +168,10 @@ USE_COMBINATION = True
 USE_COMBINATION_RESP = False        
 # Use resp to combination else use sac PZ files
 
-FIRSTDAY = 17/6/2015                
+FIRSTDAY = 02/01/2015                
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 18/6/2015                 
+LASTDAY = 03/01/2015                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.9                      

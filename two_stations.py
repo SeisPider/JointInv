@@ -4,16 +4,25 @@ from pysismo import teleseis, pstwostation, pserrors
 from pysismo.global_var import logger
 from pysismo.pstwostation import Tscombine
 from pysismo.psconfig import (FTAN_ALPHA, FIRSTDAY, LASTDAY,
-                              TELESEISMIC_DISPERSION_DIR)
+                              TELESEISMIC_DISPERSION_DIR,
+                              COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR)
 
 from itertools import combinations
 import itertools as it
 import numpy as np
 import dill
 import os
+import subprocess
+import shutil
+import glob
 
 MULTIPLEPROCESSING = {'Initialization': False,
                       'Measure disp': False}
+
+
+DATADIR = "./DATA"
+ISOLATION_DIR = DATADIR + "/Isolation"
+EVENT_DIR = DATADIR + "/GoodTrace"
 
 NB_PROCESSING = None
 if any(MULTIPLEPROCESSING.values()):
@@ -76,76 +85,46 @@ else:
     combinations = [get_useable_combine(s) for s in judgements]
 
 
-# process traces and measure dispersion curves
-def measure_teleseismic_dispersion(tscombine, periods, alpha=FTAN_ALPHA,
-                                   shift_len=500.0, demoT=None, test=False):
-    
+# ouput matched two stationsi
+with open("./LOG.INFO", 'a') as f:
+    for combination in combinations:
+        f.writelines(combination.id+" \n")
+    f.close()
+
+# Isolate fundamental rayleigh wave with computer programs in seismology
+def Isolate_Fundamental_Rayleigh_Wave(eventfolder, datadir=DATADIR,
+                                      eventdir=EVENT_DIR,
+                                      isolationdir=ISOLATION_DIR):
     """
-    Measure teleseismic fundamental Rayleigh wave dispersion and handle errors
-
-    :type tscombines: class `.pysismo.pstwostation.Tscombine`
-    :param tscombines: contains information and bounded with method to calculate
-                       Rayleigh wave dispersion curves
-    :type periods: class `numpy.array`
-    :param periods: contains periods band we are interested
-    :type alpha: float default `FTAN_ALPHA` from `.pysismo.psconfig`
-    :param alpha: factor in Gaussian filter
-    :type shift_len: float default `500.0`
-    :param shift_len: time shift in cross-correlation [unit is second]
+    Measure Group velocity of traces and Cut fundamental rayleigh wave out
     """
+    # obtain catalog
+    os.chdir(os.path.join(EVENT_DIR, eventfolder))
+    p = subprocess.Popen(['sh'], stdin=subprocess.PIPE)
+    s = "do_mft *.SAC"
+    p.communicate(s.encode())
     
-    logger.info("Measure dispersion curve of {}".format(tscombine.id))
+    os.chdir("../../../")
 
-    # debug
-    logger.debug("Periods -> {}".format(len(periods)))
-    logger.debug("alpha -> {}".format(alpha))
-    logger.debug("shift -> {}".format(shift_len))
-    
-    
-    if test:
-        if tscombine.id != "XJ.LHG-XJ.SMY-20150617125132":
-            return
+    # move files to Isolated part
+    suffixs = ["*.SACs", "*SACr", "*.dsp"]
+    for suffix in suffixs: 
 
-   # tscombine.measure_dispersion(periods=periods, alpha=alpha,
-   #                              shift_len=shift_len, period=demoT)
-    
-    try:
-        tscombine.measure_dispersion(periods=periods, alpha=alpha,
-                                     shift_len=shift_len, period=demoT)
-        errmsg = None
-    except pserrors.CannotMeasureDispersion as err:
-        # can not measure
-        errmsg = "{} -> skipping".format(err)
-    except Exception as err:
-        # Unhandled exception
-        errmsg = 'Unhandled error -> {}'.format(err)
-    if errmsg:
-        # print error message
-        logger.error("{}.{}-{}.{}[{}]".format(tscombine.sta1.network,
-                                              tscombine.sta1.name,
-                                              tscombine.sta2.network,
-                                              tscombine.sta2.name,
-                                              errmsg))
-        tscombine = None
-    return tscombine
+        sourcefiles = glob.glob(os.path.join(EVENT_DIR, eventfolder, suffix))
+        destination = os.path.join(isolationdir, eventfolder)
+        if not os.path.exists(destination):
+            os.mkdir(destination)
+        
+        for sourcefile in sourcefiles:
+            shutil.move(sourcefile, destination)
+    return None
 
+events = glob.glob(os.path.join(EVENT_DIR, "*"))
 
-# Import periods that we interested in
-periods = np.arange(20, 100)
-# Filter None combination
-combinations = filter(lambda v: v is not None, combinations)
+for event in events:
+    eventfolder = os.path.split(event)[-1]
+    Isolate_Fundamental_Rayleigh_Wave(eventfolder)
 
-# Measure dispersion
-if MULTIPLEPROCESSING['Measure disp']:
-    # multipleprocessing turned on: one process per tscombine instance
-    pool = mp.Pool(NB_PROCESSING)
-    tscombinations = pool.starmap(measure_teleseismic_dispersion, list(
-                                  zip(combinations, it.repeat(periods))))
-    pool.close()
-    pool.join()
-else:
-    tscombinations = [measure_teleseismic_dispersion(tscombine, periods)
-                      for tscombine in combinations]
 # Export data
 with open('{}.dill'.format(OUTFILEPATH), 'wb') as f:
     msg = "Exporting dispersion curves calculated to -> {}".format(f.name)
