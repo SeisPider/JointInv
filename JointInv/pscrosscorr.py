@@ -38,7 +38,7 @@ from matplotlib import gridspec
 import datetime as dt
 
 from termcolor import colored  # module to output colored string
-from pysismo.global_var import logger
+from JointInv.global_var import logger
 plt.ioff()  # turning off interactive mode
 
 # ====================================================
@@ -160,8 +160,8 @@ class CrossCorrelation:
     def __init__(self, station1, station2, xcorr_dt=PERIOD_RESAMPLE,
                  xcorr_tmax=CROSSCORR_TMAX):
         """
-        @type station1: L{pysismo.psstation.Station}
-        @type station2: L{pysismo.psstation.Station}
+        @type station1: L{JointInv.psstation.Station}
+        @type station2: L{JointInv.psstation.Station}
         @type xcorr_dt: float
         @type xcorr_tmax: float
         """
@@ -1663,7 +1663,7 @@ class CrossCorrelationCollection(AttribDict):
         if the pair station1-station2 is not in self
 
         @type tracedict: dict from str to L{obspy.core.trace.Trace}
-        @type stations: list of L{pysismo.psstation.Station}
+        @type stations: list of L{JointInv.psstation.Station}
         @type xcorr_tmax: float
         @type verbose: bool
         """
@@ -2173,7 +2173,7 @@ class CrossCorrelationCollection(AttribDict):
         to a list of pairs (of station name).
 
         @type pairs: list of (str, str)
-        @rtype: list of L{pysismo.psstation.Station}
+        @rtype: list of L{JointInv.psstation.Station}
         """
         stations = []
         for s1, s2 in pairs:

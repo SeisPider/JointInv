@@ -149,7 +149,7 @@ def plot_nb_pairs():
     period, for the selected dispersion curves.
     """
     # parsing some parameters of configuration file
-    from pysismo.psconfig import (FTAN_DIR, MINSPECTSNR, MINSPECTSNR_NOSDEV,
+    from .psconfig import (FTAN_DIR, MINSPECTSNR, MINSPECTSNR_NOSDEV,
                                   MINNBTRIMESTER, MAXSDEV)
 
     # selecting dispersion curves
@@ -643,3 +643,19 @@ def groupbykey(iterable, key=None):
         groups.append([x for x in iterable if key(x) == k])
 
     return groups
+
+def locate_external_scripts(scriptname="allsacmft96.sh"):
+    """
+    Retrun location of external scripts
+
+    Parameters
+    ----------
+    scriptsname: string
+        name of finding scripts 
+    """
+    module_path = os.path.dirname(__file__)
+    scripts_path = os.path.join(module_path, "scripts", scriptname)
+    if os.path.isfile(scripts_path):
+        return scripts_path
+    else:
+        return None

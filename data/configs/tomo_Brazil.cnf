@@ -102,7 +102,7 @@ DEPTHMODELS_DIR = ./output/1D_models
 # dir of the (binaries of the) Computer Programs in Seismology, used
 # to calculate a theoretical dispersion curve given a 1D model
 # (set to null if you have not installed them)
-COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR = /home/seispider/Source-file/CPFS/PROGRAMS.330/bin
+COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR = ~/src/CPS/PROGRAMS.330/bin 
 
 #=====
 [maps]

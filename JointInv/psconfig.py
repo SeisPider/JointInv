@@ -10,9 +10,9 @@ import glob
 import json
 import datetime as dt
 import numpy as np
+from os.path import dirname, join
 
-
-def select_and_parse_config_file(basedir='../', ext='cnf', verbose=True):
+def select_and_parse_config_file(basedir='./', ext='cnf', verbose=True):
     """
     Reads a configuration file and returns an instance of ConfigParser:
 
@@ -48,8 +48,9 @@ def select_and_parse_config_file(basedir='../', ext='cnf', verbose=True):
 # ==========================
 # parsing configuration file
 # ==========================
-
-config = select_and_parse_config_file(basedir='./', ext='cnf', verbose=True)
+module_path = dirname(__file__)
+configdir = join(module_path, "../data/configs")
+config = select_and_parse_config_file(basedir=configdir, ext='cnf', verbose=True)
 
 # -----
 # paths
