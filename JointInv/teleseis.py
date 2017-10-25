@@ -1,25 +1,34 @@
 #! /usr/bin/python -u
 # -*- coding:utf-8 -*-
-"""
-Module for extracting dispersion curves of Rayleigh wave from teleseismic records
-
+"""Module for teleseismic dispersion curves measurements
 """
 from .psstation import Station
 from . import trimmer, psutils
 from .global_var import logger
-from .psconfig import (STATIONINFO_DIR, CATALOG_DIR, EQWAVEFORM_DIR, FIRSTDAY,
-                       LASTDAY, NETWORKS_SUBSET, CHANNELS_SUBSET)
 import os
 from copy import copy
 import itertools as it
 import numpy as np
 
-def get_catalog(catalog=CATALOG_DIR, fstday=FIRSTDAY, endday=LASTDAY):
-    """
-    Import catalog
 
-    :type catalog str or path-like object
-    :parm catalog indicates directory of file containing events info
+def get_catalog(catalog, fstday, endday):
+    """Import catalog
+
+    Import catalog-like files where events are recored as 
+         <Origin> <latitude> <longitude> <depth> <magnitude> <magnitude type>
+         UTC Time    deg         deg        km        --            --
+    e.g. 2012-01-05T01:13:40.430 -17.6910 -173.5430  35.0 5.6  mwc
+
+    Parameters
+    ----------
+    catalog : str or path-like object
+        catalog indicates directory of file containing events info
+
+    fstday : datetime or UTCDateTime class
+        Date for beginning to scan
+
+    endday : datetime or UTCDateTime class
+        Date for endding to scan
      """
 
     logger.info("scanning events in dir -> %s", catalog)
@@ -39,30 +48,45 @@ def get_catalog(catalog=CATALOG_DIR, fstday=FIRSTDAY, endday=LASTDAY):
     return catalogs
 
 
-def scan_stations(dbdir=STATIONINFO_DIR, sacdir=EQWAVEFORM_DIR,
-                  networks=NETWORKS_SUBSET, channels=CHANNELS_SUBSET,
-                  fstday=FIRSTDAY, endday=LASTDAY, coord_tolerance=1E-4):
-    """
-    Import stations
+def scan_stations(dbdir, sacdir, networks, channels, fstday, endday, dbtype="raw",
+                  coord_tolerance=1E-4):
+    """Import stations
 
-    :type sacdir str or path-like object
-    :parm sacdir indicates directory of trimmed SAC files
-    :type networks list
-    :parm networks indicates networks' code to be calculated
-    :type channels list
-    :parm channels indicates channels' code to be calculated
-    :type firstday `~obspy.UTCDateTime`
-    :parm firstday is first day to find the stations
-    :type lastday `~obspy.UTCDateTime`
-    :parm lastday is last day to find the stations
+    Scan stations during research time
+
+    Parameters
+    ----------
+    dbdir : str or path-like object
+        directory of stations information database file
+    sacdir : str or path-like object
+        sacdir indicates directory of trimmed/isolated SAC files
+    networks : list
+        networks indicates networks' code to be calculated
+    channels : list
+        channels indicates channels' code to be calculated
+    fstday : `~obspy.UTCDateTime`
+        firstday is first day to find the stations
+    lastday : `~obspy.UTCDateTime`
+        lastday is last day to find the stations
+    dbtype: str
+        database type, if fundamental rayleigh wave are inisolated, it should
+        be `raw` or else `iso`
     """
     logger.info("scanning stations under dir -> %s", sacdir)
 
     # import station database
     stationdb = trimmer.read_stations(dbdir)
+   
+    
     # initialization list of stations by scanning
-    files = psutils.filelist(sacdir, startday=fstday, endday=endday, ext='SAC',
-                             subdirs=True)
+    if dbtype == "raw":
+        # scan raw contineous waveform
+        files = psutils.filelist(sacdir, startday=fstday, endday=endday,
+                                 ext='SAC', subdirs=True)
+    elif dbtype == "iso":
+        # scan isolated waveform
+        files = psutils.filelist(sacdir, startday=fstday, endday=endday,
+                                 ext='SACs', subdirs=True)
 
     stations = []
     for f in files:
@@ -140,3 +164,33 @@ def scan_stations(dbdir=STATIONINFO_DIR, sacdir=EQWAVEFORM_DIR,
                 logger.info(s.format(repr(sta), maxdiff_lon, maxdiff_lat))
                 stations.remove(sta)
     return stations
+
+def common_line_judgement(event, station_pair, minangle=2.0):
+    """Select matched station pair and event
+    Parameters
+    ----------
+    event : dict
+        event contain info of event ['origin', 'latitude', 'longitude', 'depth'
+                                     'magnitude']
+    station_pair : tuple
+        contain two class Station `.psstation.Station`
+    minangle : float
+        the minimum angle between two station-event lines
+    """
+    sta1, sta2 = station_pair
+    # calculate azimuth and back-azimuth
+    intersta = DistAz(sta1.coord[1], sta1.coord[0],
+                      sta2.coord[1], sta2.coord[0])
+    sta2event = DistAz(sta1.coord[1], sta1.coord[0],
+                       event["latitude"], event["longitude"])
+    # sta1-sta2-event
+    if np.abs(intersta.baz - sta2event.baz) < minangle:
+        logger.debug("Commonline -> %s.%s-%s.%s-%s", sta1.network, sta1.name,
+                     sta2.network, sta2.name, event['origin'])
+        return (sta1, sta2, event)
+    elif np.abs(np.abs(intersta.baz - sta2event.baz) - 180) < minangle:
+        logger.debug("Commonline -> %s.%s-%s.%s-%s", sta2.network, sta2.name,
+                     sta1.network, sta2.name, event['origin'])
+        return (sta2, sta1, event)
+    else:
+        return None

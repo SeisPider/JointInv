@@ -79,20 +79,23 @@
 #
 # find in SACPZ_DIR first, it not found then use response in CSNPZ
 MSEED_DIR = /run/media/seispider/Seagate Backup Plus Drive/CENC
+
 STATIONXML_DIR = null
 DATALESS_DIR = null
 RESP_DIR = null
-SACPZ_DIR = ./info/CSNPZ_2016
-ALTERNATIVE_SACPZ_DIR = ./info/CSNPZ
-STATIONINFO_DIR = ./info/station.info
-CATALOG_DIR = ./info/catalog.csv
-EQWAVEFORM_DIR = ../Events
+SACPZ_DIR = ../info/CSNPZ_2016
+ALTERNATIVE_SACPZ_DIR = ../info/CSNPZ
 
+STATIONINFO_DIR = ../info/station.info
+
+# Teleseismic part
+TRIMMER_OUTPUT_DIR = ./data/traces
+ISOLATION_OUTPUT_DIR = ./data
+TELESEISMIC_DISPERSION_DIR = ./output/teleseismic_dispersion         
 
 CROSSCORR_DIR = ./output/cross_correlation 
 # dir of cross-correlation results
 FTAN_DIR = ./output/FTAN         
-TELESEISMIC_DISPERSION_DIR = ./output/teleseismic_dispersion         
 # dir of FTAN results (including dispersion curves)
 TOMO_DIR = ./output/tomography              
 # dir of tomographic inversion results

@@ -19,11 +19,10 @@ import pyproj
 import itertools as it
 from PyPDF2.pdf import PdfFileReader, PdfFileWriter
 
-from .global_var import logger
+from .psconfig import get_global_param, logger
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================
-from .psconfig import CROSSCORR_SKIPLOCS, COAST_SHP, TECTO_SHP, TECTO_LABELS, TECTO_COLORS
 
 # reference elipsoid to calculate distance
 wgs84 = pyproj.Geod(ellps='WGS84')
@@ -114,7 +113,7 @@ def get_fill(st, starttime=None, endtime=None):
     return fill
 
 
-def clean_stream(stream, skiplocs=CROSSCORR_SKIPLOCS, verbose=False):
+def clean_stream(stream, skiplocs=None, verbose=False):
     """
     1 - Removes traces whose location is in skiplocs.
     2 - Select trace from 1st location if several ids.
@@ -142,27 +141,24 @@ def clean_stream(stream, skiplocs=CROSSCORR_SKIPLOCS, verbose=False):
             stream.remove(tr)
 
 
-def plot_nb_pairs():
+def plot_nb_pairs(ftan_dir, minispectsnr, minspectsnr_nosdev,
+                  minnbtraimester, maxsdev):
     """
     Plot the total nb of group velocity measurements and the remaining
     nb of measurements (after applying selection criteria), function of
     period, for the selected dispersion curves.
     """
-    # parsing some parameters of configuration file
-    from .psconfig import (FTAN_DIR, MINSPECTSNR, MINSPECTSNR_NOSDEV,
-                                  MINNBTRIMESTER, MAXSDEV)
-
     # selecting dispersion curves
-    flist = sorted(glob.glob(os.path.join(FTAN_DIR, 'FTAN*.pickle*')))
-    print ('Select file(s) containing dispersion curves to process:')
-    print(('\n'.join('{} - {}'.format(i, os.path.basename(f)))
+    flist = sorted(glob.glob(os.path.join(ftan_dir, 'FTAN*.pickle*')))
+    logger.info('Select file(s) containing dispersion curves to process:')
+    logger.info(('\n'.join('{} - {}'.format(i, os.path.basename(f)))
                     for i, f in enumerate(flist)))
     res = eval(input('\n'))
     pickle_files = [flist[int(i)] for i in res.split()]
 
     for curves_file in pickle_files:
         # loading dispersion curves of file
-        print(("Loading file: " + curves_file))
+        logger.info(("Loading file: " + curves_file))
         f = open(curves_file, 'rb')
         curves = pickle.load(f)
         f.close()
@@ -170,10 +166,10 @@ def plot_nb_pairs():
 
         # updating selection parameters of dispersion curves
         for c in curves:
-            c.update_parameters(minspectSNR=MINSPECTSNR,
-                                minspectSNR_nosdev=MINSPECTSNR_NOSDEV,
-                                minnbtrimester=MINNBTRIMESTER,
-                                maxsdev=MAXSDEV)
+            c.update_parameters(minspectSNR=minspectsnr,
+                                minspectSNR_nosdev=minspectsnr_nosdev,
+                                minnbtrimester=minnbtrimester,
+                                maxsdev=maxsdev)
 
         # list of arrays of filtered velocities
         list_filtered_vels = [c.filtered_vels_sdevs()[0] for c in curves]
@@ -481,7 +477,9 @@ def norm(u):
     return np.sqrt(u[0]**2 + u[1]**2 + u[2]**2)
 
 
-def basemap(ax=None, labels=True, axeslabels=True, fill=True, bbox=None):
+def basemap(ax=None, labels=True, axeslabels=True, fill=True, bbox=None,
+            coast_shape=None, tecto_shape=None, tecto_colors=None,
+            tecto_labels=None):
     """
     Plots base map: coasts (file *COAST_SHP*), tectonic provinces
     file  *TECTO_SHP*) and labels (file *TECTO_LABELS*). Labels are
@@ -494,8 +492,8 @@ def basemap(ax=None, labels=True, axeslabels=True, fill=True, bbox=None):
         ax = fig.add_subplot(111)
 
     # plotting coasts
-    if COAST_SHP:
-        sf = shapefile.Reader(COAST_SHP)
+    if coast_shape:
+        sf = shapefile.Reader(coast_shape)
         for shape in sf.shapes():
             # adding polygon(s)
             parts = list(shape.parts) + [len(shape.points)]
@@ -506,11 +504,11 @@ def basemap(ax=None, labels=True, axeslabels=True, fill=True, bbox=None):
                 ax.plot(x, y, '-', lw=0.75, color='k')
 
     # plotting tectonic provinces
-    if TECTO_SHP:
-        sf = shapefile.Reader(TECTO_SHP)
+    if tecto_shape:
+        sf = shapefile.Reader(tecto_shape)
         for sr in sf.shapeRecords():
             tectcategory = sr.record[0]
-            color = next((TECTO_COLORS[k] for k in list(TECTO_COLORS.keys())
+            color = next((tecto_colors[k] for k in list(tecto_colors.keys())
                          if k in tectcategory), 'white')
             shape = sr.shape
             parts = list(shape.parts) + [len(shape.points)]
@@ -525,7 +523,7 @@ def basemap(ax=None, labels=True, axeslabels=True, fill=True, bbox=None):
                     x, y = list(zip(*shape.points[i1:i2]))
                     ax.plot(x, y, '-', color='0.663', lw=0.5)
 
-    if labels and TECTO_LABELS:
+    if labels and tecto_labels:
         # plotting tectonic labels within bounding box
         sf = shapefile.Reader(TECTO_LABELS)
         for sr in sf.shapeRecords():

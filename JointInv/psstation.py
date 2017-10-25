@@ -19,7 +19,7 @@ import numpy as np
 # parsing configuration file to import some parameters
 # ====================================================
 from .psconfig import (MSEED_DIR, STATIONXML_DIR, DATALESS_DIR, RESP_DIR,
-                       SACPZ_DIR, ALTERNATIVE_SACPZ_DIR, STATIONINFO_DIR,
+                       SACPZ_DIR, ALTERNATIVE_SACPZ_DIR,
                        NETWORKS_SUBSET, CHANNELS_SUBSET)
 from .global_var import logger
 

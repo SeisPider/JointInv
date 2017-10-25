@@ -1,0 +1,98 @@
+#!/bin/sh
+
+#####
+#	clean up
+#####
+rm -f *PLT
+rm -f *egn
+rm -f *dsp 
+rm -f sdisp96*
+rm -f *sac
+rm -f tmp*
+
+
+#####
+#	create the velocity model interactively
+#####
+mkmod96 << EOF
+simple.mod
+Simple Crustal Model
+0
+40 6 3.5 2.7 0 0 0 0 1 1
+0 8 4.7 3.3 0 0 0 0 1 1
+EOF
+
+# Visualization of model
+sh model.sh
+
+
+#####
+#	create the dfile use sprep96 -h for the format
+#####
+cat > dfile << EOF
+2500 0.5 2048 0 8
+2850 0.5 2048 0 8
+EOF
+
+#####
+#	setup multimode surface wave dispersion and synthetics
+#####
+HS=10.0
+HR=0.0
+sprep96 -M simple.mod -d dfile -L -R -NMOD 100 -HS ${HS} -HR ${HR}
+#####
+#	get the dispersion and the eigenfunctions
+#####
+sdisp96
+sregn96
+slegn96
+sdpegn96 -R -S -C -U -XLOG -PER -ASC
+#####
+#	make the synthetic for the station for a given focal mechanism and then convert to SAC
+#####
+DIP=45
+RAKE=45 
+STK=45
+AZ=45
+BAZ=225
+MW=4.5
+spulse96 -p -V -l 4 -d dfile | \
+	fmech96 -D ${DIP} -R ${RAKE} -S ${STK} -A ${AZ} -ROT -MW ${MW} | \
+	f96tosac -B
+	
+
+# synthetic dispersion curves (Include U and C)
+period=10
+while [ "$period" -lt 121 ]
+do 
+    echo $period >> periods
+    period=`expr $period + 1`
+done
+
+sprep96 -M simple.mod -d dfile -L -R -NMOD 1 -PARR periods -HS ${HS} -HR ${HR}
+#####
+#	get the dispersion and the eigenfunctions
+#####
+sdisp96
+sregn96
+slegn96
+sdpegn96 -R -S -C -U -XLOG -PER -ASC
+
+#awk '{if ($3=="C") print $6,$7}' SREGN.dsp > simple.rc
+#awk '{if ($3=="U") print $6,$7}' SREGN.dsp > simple.ru
+
+# do sacmft96 for Z components
+for i in B*Z00.sac
+do
+	sacmft96 -S -R -a0 50 -PMIN 25 -PMAX 100 -VMIN 2.0 -VMAX 5.0 -U cm/s -f $i
+	prefix=`echo $i`
+	for j in mft96*
+	do
+		mv $j ./sacmft/$prefix.$j
+	done
+	for j in MFT96*
+	do
+		mv $j ./sacmft/$prefix.$j
+	done
+done
+rm dfile periods 

@@ -6,13 +6,16 @@ import os
 import csv
 from os.path import join, dirname
 
+import pandas as pd
 import numpy as np
 from sklearn.datasets.base import Bunch
+from sklearn.tree import DecisionTreeClassifier
+from .twostationgv import spline_interpolate, sort_measurements
+from .utile import outlier_detector
 
 import matplotlib.pyplot as plt
 from copy import copy
 
-CPSPATH = "~/src/CPS/PROGRAMS.330/bin"
 class record(object):
     """
     Class for extract info from MFT96 files
@@ -45,13 +48,13 @@ class record(object):
         self.period = float(recordstr.split()[4])
         self.velo = float(recordstr.split()[5])
         self.veloerr = float(recordstr.split()[6])
-        self.dist = recordstr.split()[7]
-        self.azimuth = recordstr.split()[8]
+        self.dist = float(recordstr.split()[7])
+        self.azimuth = float(recordstr.split()[8])
         self.specamp = recordstr.split()[9]
-        self.evla = recordstr.split()[10]
-        self.evlo = recordstr.split()[11]
-        self.stla = recordstr.split()[12]
-        self.stlo = recordstr.split()[13]
+        self.evla = float(recordstr.split()[10])
+        self.evlo = float(recordstr.split()[11])
+        self.stla = float(recordstr.split()[12])
+        self.stlo = float(recordstr.split()[13])
         self.zero = recordstr.split()[14]
         self.pknum = recordstr.split()[15]
         self.instaper = float(recordstr.split()[16])
@@ -80,8 +83,9 @@ class velomap(object):
     Class holds velocity map and corresponding method 
     """
 
-    def __init__(self, dispinfo, refdisp, trained_model, periodmin=25,
-                 periodmax=100, cpspath=CPSPATH):
+    def __init__(self, dispinfo, refdisp, trained_model=None, periodmin=25,
+                 periodmax=100, line_smooth_judge=True, treshold=1,
+                 digest_type="cubic"):
         """
         Import peaks and reference dispersion curve. After that, extract
         dispersion curve from this map.
@@ -90,9 +94,23 @@ class velomap(object):
         self.records = self.obtain_velomap(dispinfo)
         self.rdrefgvdisp(refdisp)
         self.periodmin, self.periodmax = periodmin, periodmax
-        self.labels, self.disprec = self.classification(trained_model, periodmin,
-                                                        periodmax)
 
+        # information extraction
+        self.dist = self.records[0].dist
+        self.azimuth = self.records[0].azimuth
+        self.evla = self.records[0].evla
+        self.evlo = self.records[0].evlo
+        self.stla = self.records[0].stla
+        self.stlo = self.records[0].stlo
+
+        if trained_model:
+            self.labels, self.disprec = self.classification(trained_model,
+                                                            periodmin, periodmax)
+            # TODO: judge outlier function should be improved later
+        if line_smooth_judge:
+            self.disprec = self.line_smooth_judge(treshold=treshold,
+                                                  digest_type=digest_type)
+    
     def __repr__(self):
         """
         Give out representation info
@@ -122,6 +140,59 @@ class velomap(object):
                 disprec.append(record)
         return labels, np.array(disprec)
 
+    def line_smooth_judge(self, treshold=1.96, digest_type="poly_fit", 
+                          verbose=True):
+        """
+        Delete outliers in points selected by machine
+        """
+        records = copy(self.disprec)
+
+        insta = np.array([x.instaper for x in records])
+        velo = np.array([x.velo for x in records])
+        insta, velo = sort_measurements(insta, velo)
+
+        if digest_type == "move_average":
+            data = np.array([insta, velo])
+            data_as_frame = pd.DataFrame(data=data.T, columns=["period", "velocity"])
+            data_as_frame.head()
+
+            X = data_as_frame['period']
+            Y = data_as_frame["velocity"]
+            
+            # detect outliers
+            outliers = outlier_detector(X, y=Y, window_size=6, sigma_value=1.96,
+                                        depict=True, applying_rolling_std=True)
+            
+            # to be check out
+            remindrec = [rec for rec in records 
+                             if rec.instaper not in outliers['anomalies_dict'].keys()]
+            return remindrec
+        
+        if digest_type == digest_type:
+            fitvelo = spline_interpolate(insta, velo, insta, fittype=digest_type)
+            residual = velo - fitvelo
+            sigma = (velo - fitvelo).std()
+
+            # detect
+            outlierper = insta[np.abs(residual) >= treshold * sigma]
+            remindrec = [rec for rec in records if rec.instaper not in outlierper]
+            if verbose:
+                plt.plot(insta, velo, "o", label="Observed Velo.")
+                plt.plot(insta, fitvelo, label="Fit Velo.")
+                plt.plot(insta, fitvelo+treshold * sigma, "+",
+                                label="Upper Boundary")
+                plt.plot(insta, fitvelo-treshold * sigma, "+",
+                                label="lower Boundary")
+                insta2 = np.array([x.instaper for x in remindrec])
+                velo2 = np.array([x.velo for x in remindrec])
+                plt.plot(insta2, velo2, "o", label="Reminded")
+                plt.xlabel("Period [s]")
+                plt.ylabel("Velocity [km/s]")
+                plt.title("{}".format(self.id))
+                plt.legend()
+                plt.show()
+        return remindrec
+
     def MFT962SURF96(self, outfile, cpspath):
         """
         Export mft96 formated data to SURF96 format
@@ -138,12 +209,14 @@ class velomap(object):
         os.system(cmndstr)
         os.remove("temp.disp")
 
-    def isowithsacmat96(self, srcpath, surf96filepath, cpspath=CPSPATH):
+    def isowithsacmat96(self, surf96filepath, cpspath, srcpath=None,
+                        srcsacfile=None):
         """
         Isolate SAC traces with extracted group velocity dispersion curves
         """
-        print(join(srcpath, "*{}*".format(self.id)))
-        srcsacfile = glob.glob(join(srcpath, "*{}*.SAC".format(self.id)))[0]
+        if not srcsacfile:
+            print(join(srcpath, "*{}*".format(self.id)))
+            srcsacfile = glob.glob(join(srcpath, "*{}*.SAC".format(self.id)))[0]
 
         # isolate fundamental Rayleigh wave with sacmat96
         excfile = join(cpspath, "sacmat96")
@@ -173,24 +246,33 @@ class velomap(object):
 
     def pltgvmap(self, permin=25, permax=100, filename=None):
         """
-        Plot period-velocity map
+        Plot period-velocity map and classified dispersion curve
         """
-        self.instper = np.array([float(x.instaper) for x in self.records])
-        self.gv = np.array([float(x.velo) for x in self.records])
-        self.gverr = np.array([float(x.veloerr) for x in self.records])
+        rawinstper = np.array([float(x.instaper) for x in self.records])
+        rawgv = np.array([float(x.velo) for x in self.records])
+        rawgverr = np.array([float(x.veloerr) for x in self.records])
 
+        clainstper = np.array([float(x.instaper) for x in self.disprec])
+        clagv = np.array([float(x.velo) for x in self.disprec])
+        clagverr = np.array([float(x.veloerr) for x in self.disprec])
+
+        
         xmin = permin - 1.0
         xmax = permax + 1.0
-        ymin = self.gv.min() - 1.0
-        ymax = self.gv.max() + 1.0
+        ymin = rawgv.min() - 1.0
+        ymax = rawgv.max() + 1.0
 
-        plt.errorbar(self.instper, self.gv, yerr=self.gverr, fmt="o",
-                     label="Observation")
+        plt.errorbar(rawinstper, rawgv, yerr=rawgverr, fmt="o",
+                     label="Extreme Values")
+        plt.errorbar(clainstper, clagv, yerr=clagverr, fmt="o",
+                     label="Selected Points")
+        
         plt.plot(self.refperiods, self.refgv, label="Synthetic [ak135]")
         plt.xlabel("Instaneous Period [s]")
         plt.ylabel("Group Velocity [km/s]")
         plt.xlim([xmin, xmax])
         plt.ylim([ymin, ymax])
+        plt.title("Selection Map of {}".format(self.id))
         plt.legend()
 
         if not filename:
@@ -232,3 +314,21 @@ def load_disp(return_X_y=False, datasetdir=None):
                  DESCR=fdescr,
                  feature_names=['Instantaneous period (s)', 'Group velocity (km/s)',
                                 'Velocity error (km/s)'])
+
+def gen_disp_classifier(min_samples_split=20, weighted=True):
+    """
+    Generate dispersion classifier
+    """
+    disp = load_disp()
+    x = disp.data[:, [0,1]]
+    y = disp.target
+    if weighted:
+        errweight = 1.0 / disp.data[:, -1]
+        clf = DecisionTreeClassifier(min_samples_split=min_samples_split
+                                    ).fit(x, y, sample_weight=errweight)
+        return clf
+    else:
+        clf = DecisionTreeClassifier(min_sample_split=min_sample_split
+                                    ).fit(x, y)
+        return clf
+

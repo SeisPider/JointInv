@@ -6,16 +6,12 @@ import glob
 from sklearn.tree import DecisionTreeClassifier as DTC
 
 from JointInv.machinelearn.base import load_disp, velomap
-from JointInv.global_var import logger
-from JointInv.psconfig import (SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX,
-                               COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR)
+from JointInv.psconfig import get_global_param, logger
 from JointInv import psutils
-
 
 # Isolate waveform of an specific event
 def event_isolation(eventdir, refgvpath, outpath,
-                    cpspath=COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR,
-                    classifier=None, periodmin=25, periodmax=100):
+                    cpspath=None, classifier=None, periodmin=25, periodmax=100):
 
     dispfiles = glob.glob(join(eventdir, "*.disp"))
     for dispfile in dispfiles:
@@ -25,7 +21,8 @@ def event_isolation(eventdir, refgvpath, outpath,
                             periodmax=permax)
         outfilepath = join(outpath, ".".join([judgement.id, "d"]))
         judgement.MFT962SURF96(outfilepath, cpspath)
-        judgement.isowithsacmat96(eventdir, outfilepath, cpspath=cpspath)
+        judgement.isowithsacmat96(srcpath=eventdir, surf96filepath=outfilepath,
+                                  cpspath=cpspath)
         # move files
         SACsfiles = join(eventdir, "*.SACs")
         cmndstr = "mv {} {}".format(SACsfiles, outpath)
@@ -38,7 +35,9 @@ if __name__ == "__main__":
     Isolate fundamental rayleigh wave with automatically picked group velocity
     dispersion curve with Decision Tree algorithm
     """
-    cpspath = COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR
+    # import configuration file
+    gbparam = get_global_param("../data/configs/")
+    cpspath = gbparam.cpspath
 
     # import training data and train model
     disp = load_disp()
@@ -50,13 +49,13 @@ if __name__ == "__main__":
 
     # set para. for extract rough group velocity curve
     try:
-        rootdir = sys.argv[1]
+        rootdir =  gbparam.isolation_output_dir
     except IndexError:
         logger.error("Please input directory of dataset !")
         rootdir = input()
 
     permin, permax = 25, 100  # set period region
-    velomin, velomax = SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX
+    velomin, velomax = gbparam.signal_window_vmin, gbparam.signal_window_vmax
     eventlist = glob.glob(join(rootdir, "rawtraces", "*"))
     refgvpath = "../data/info/SREGN.ASC"
 
