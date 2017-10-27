@@ -39,16 +39,17 @@ for judgement in [roughgva, roughgvb]:
     os.system("mv ./*.sac[rs] ./isolation/")
 
 
-permin, permax = min(insta1.min(), insta2.min()), max(insta1.max(), insta2.max())
+permin, permax = min(insta1.min(), insta2.min()), max(
+    insta1.max(), insta2.max())
 
 # import synthetic
 period, synrc, synru = np.loadtxt("./SREGN.ASC", usecols=(2, 4, 5),
                                   unpack=True, skiprows=1)
 # import measured phase velocity dispersion
-velocper, velocms = np.loadtxt("./isolation/rayl.dsp", usecols=(5,6),
+velocper, velocms = np.loadtxt("./isolation/rayl.dsp", usecols=(5, 6),
                                unpack=True)
 plt.figure(1)
-plt.subplot(1,2,1)
+plt.subplot(1, 2, 1)
 plt.plot(insta1, velo1, "o", label="Measured U of {}".format(roughgva.id))
 plt.plot(insta2, velo2, "o", label="Measured U of {}".format(roughgvb.id))
 plt.plot(period, synru, label="Synthetic U")
@@ -60,7 +61,7 @@ plt.legend()
 
 
 # derive group velocity from measured phase velocity dispersion
-plt.subplot(1,2,2)
+plt.subplot(1, 2, 2)
 plt.plot(period, synrc, label="Synthetic C")
 plt.plot(velocper, velocms, "o", label="Measured C")
 plt.xlabel("Period [s]")
@@ -69,4 +70,3 @@ plt.title("{}-{}".format(roughgva.id, roughgvb.id))
 plt.xlim(permin, permax)
 plt.legend()
 plt.show()
-#plt.savefig("CBC-HEF-self-consistency-test.png")

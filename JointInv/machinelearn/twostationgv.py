@@ -50,8 +50,8 @@ class interstagv(object):
         velo3 = deltadist / np.abs(arrspline1 - arrspline2)
         return insta1, insta2, periods, velo1, velo2, velo3
 
-def spline_interpolate(x, y, splinex, fittype="spline", der=0, s=None):
-    """Spline interpolation
+def spline_interpolate(x, y, splinex, fittype="poly", der=0, s=None):
+    """Interpolation
     """
     x1, y1 = (np.array(t) for t in zip(*sorted(zip(x, y))))
     

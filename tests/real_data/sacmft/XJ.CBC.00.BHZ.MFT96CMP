@@ -1,0 +1,8 @@
+#!/bin/sh
+ 
+# Data file = 2015.006.22.09.13.0000.XJ.CBC.00.BHZ.M.SAC
+# alpha =    100.000
+ 
+sdpegn96 -X0  5.10 -Y0  1.50 -XLEN  4.00 -YLEN  4.00 -XMIN   25.0     -XMAX   100.     -YMIN  2.00 -YMAX  5.00 -PER  -R -U -NOBOX -XLOG -YLIN 
+ 
+sacspc96 -X0  1.30 -Y0  1.50 -XLEN  3.00 -YLEN  4.00 -XMIN   5.00     -XMAX   500.     -YMIN  0.100E-04 -YMAX  0.100E-01 -PER   -NOBOX -XLOG -YLOG -f 2015.006.22.09.13.0000.XJ.CBC.00.BHZ.M.SAC
