@@ -1,6 +1,8 @@
 *.pyc
 *.mseed
 *.SAC
+*.SAC[rs]
+*.png
 __pycache__
 EQPROCE/
 node_modules
