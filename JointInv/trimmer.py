@@ -69,7 +69,7 @@ import numpy as np
 from obspy import read, Stream, UTCDateTime
 from obspy.io.sac import SACTrace
 from obspy.geodetics.base import gps2dist_azimuth
-from .global_var import logger
+from . import logger
 
 
 class Trimmer(object):

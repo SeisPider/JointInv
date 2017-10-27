@@ -1,7 +1,7 @@
 # /usr/bin/env python
 # -*- coding:utf-8 -*-
-from JointInv import teleseis, pserrors
-from JointInv.psconfig import logger, get_global_param
+from JointInv import teleseis, pserrors, logger
+from JointInv.psconfig import  get_global_param
 from JointInv.pstwostation import StasCombine 
 
 from itertools import combinations
@@ -18,14 +18,17 @@ if any(MULTIPLEPROCESSING.values()):
 # Parameters Determination
 gbparam = get_global_param("../data/configs")
 
-outbasename = ['teleseismic', '{}-{}'.format(gbparam.firstday.year,
-                                             gbparam.lastday.year), 'XJ']
+outbasename = ['teleseismic', '{}-{}'.format(gbparam.fstday.year,
+                                             gbparam.endday.year), 'XJ']
 outfilepath = os.path.join(gbparam.teledisp_dir, '_'.join(outbasename))
 
 # import catalog and stations
-catalogs = teleseis.get_catalog(catalog=catalog_dir, fstday=startday,
-                                endday=endday)
-stations = teleseis.scan_stations(dbdir=stasinfo, sacdir=)
+catalogs = teleseis.get_catalog(catalog=gbparam.catalog_dir, fstday=gbparam.fstday,
+                                endday=gbparam.endday)
+stations = teleseis.scan_stations(dbdir=gbparam.stationinfo_dir, 
+                                  sacdir=gbparam.isolation_output_dir,
+                                  fstday=gbparam.fstday, endday=gbparam.endday,
+                                  dbtype="iso")
 # combine station pairs
 station_pairs = list(combinations(stations, 2))
 

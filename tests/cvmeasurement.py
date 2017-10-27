@@ -28,6 +28,11 @@ def event_isolation(eventdir, refgvpath, outpath,
         cmndstr = "mv {} {}\n mv ./*.png {}".format(SACsfiles, outpath, outpath)
         os.system(cmndstr)
 
+        # move measured dispersion curve to result path
+        cmndstr = "mv ./disp.out {}".format(join(outpath, ".".join([judgement.id,
+                                                                    "disp.out"])))
+        os.system(cmndstr)
+
 
 if __name__ == "__main__":
 
@@ -55,7 +60,9 @@ if __name__ == "__main__":
     refgvpath = "../data/info/SREGN.ASC"
 
     allsacmftpath = psutils.locate_external_scripts("allsacmft.sh")
+    
     for event in eventlist:
+        
         # automatically perform sacmft96
         cmndstr = "sh {} {} {} {} {} {}".format(allsacmftpath, event,
                                                 permin, permax, velomin, velomax)
@@ -76,6 +83,5 @@ if __name__ == "__main__":
             msg = 'Unhandled error: {}'.format(err)
         continue
         
-        # measure clean group velocity dispersion curve
-    if os.path.isfile("./disp.out"):
-        os.remove("./disp.out")
+        # measure clean phase velocity dispersion curve
+

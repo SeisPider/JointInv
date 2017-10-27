@@ -3,8 +3,7 @@
 """Module for teleseismic dispersion curves measurements
 """
 from .psstation import Station
-from . import trimmer, psutils
-from .global_var import logger
+from . import trimmer, psutils, logger
 import os
 from copy import copy
 import itertools as it
@@ -47,9 +46,8 @@ def get_catalog(catalog, fstday, endday):
             catalogs.append(event)
     return catalogs
 
-
-def scan_stations(dbdir, sacdir, networks, channels, fstday, endday, dbtype="raw",
-                  coord_tolerance=1E-4):
+def scan_stations(dbdir, sacdir, fstday, endday, networks=None, channels=None,
+                  dbtype="raw", coord_tolerance=1E-4):
     """Import stations
 
     Scan stations during research time

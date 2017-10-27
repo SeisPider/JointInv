@@ -11,17 +11,8 @@ import json
 import datetime as dt
 import numpy as np
 from os.path import dirname, join
-import logging
-from . import Bunch
 
-# Setup the logger
-FORMAT = "[%(asctime)s]  %(levelname)s: %(message)s"
-logging.basicConfig(
-    level=logging.DEBUG,
-    format=FORMAT,
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
+from . import Bunch
 
 
 def select_and_parse_config_file(basedir='./', ext='cnf', verbose=True):
@@ -82,6 +73,7 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
     SACPZ_DIR = config.get('paths', 'SACPZ_DIR')
     ALTERNATIVE_SACPZ_DIR = config.get('paths', 'ALTERNATIVE_SACPZ_DIR')
     STATIONINFO_DIR = config.get('paths', 'STATIONINFO_DIR')
+    CATALOG_DIR = config.get('paths', 'CATALOG_DIR')
 
     # output dirs
     CROSSCORR_DIR = config.get('paths', 'CROSSCORR_DIR')
@@ -272,6 +264,7 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
         teledisp_dir=TELESEISMIC_DISPERSION_DIR,
         trimmer_output_dir=TRIMMER_OUTPUT_DIR,
         isolation_output_dir=ISOLATION_OUTPUT_DIR,
+        catalog_dir=CATALOG_DIR,
 
         cpspath=COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR,
         use_datalesspaz=USE_DATALESSPAZ, use_stationxml=USE_STATIONXML,
@@ -282,8 +275,8 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
         network_subset=NETWORKS_SUBSET,
         channel_subset=CHANNELS_SUBSET,
         crosscorr_skiplocs=CROSSCORR_SKIPLOCS,
-        firstday=FIRSTDAY,
-        lastday=LASTDAY, minfill=MINFILL, freqmin=FREQMIN,
+        fstday=FIRSTDAY,
+        endday=LASTDAY, minfill=MINFILL, freqmin=FREQMIN,
         freqmax=FREQMAX, corners=CORNERS, zerophase=ZEROPHASE,
         period_resample=PERIOD_RESAMPLE, onebit_norm=ONEBIT_NORM,
         freqmin_eq=FREQMIN_EARTHQUAKE,

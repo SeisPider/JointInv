@@ -83,15 +83,16 @@ MSEED_DIR = /run/media/seispider/Seagate Backup Plus Drive/CENC
 STATIONXML_DIR = null
 DATALESS_DIR = null
 RESP_DIR = null
-SACPZ_DIR = ../info/CSNPZ_2016
-ALTERNATIVE_SACPZ_DIR = ../info/CSNPZ
+SACPZ_DIR = ../data/info/CSNPZ_2016
+ALTERNATIVE_SACPZ_DIR = ../data/info/CSNPZ
 
-STATIONINFO_DIR = ../info/station.info
+STATIONINFO_DIR = ../data/info/station.info
 
 # Teleseismic part
-TRIMMER_OUTPUT_DIR = ./data/traces
-ISOLATION_OUTPUT_DIR = ./data
+TRIMMER_OUTPUT_DIR = ./data/rawtraces
+ISOLATION_OUTPUT_DIR = ./data/isotraces
 TELESEISMIC_DISPERSION_DIR = ./output/teleseismic_dispersion         
+CATALOG_DIR = ../data/info/catalog.csv
 
 CROSSCORR_DIR = ./output/cross_correlation 
 # dir of cross-correlation results

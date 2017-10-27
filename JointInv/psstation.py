@@ -18,10 +18,7 @@ import numpy as np
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================
-from .psconfig import (MSEED_DIR, STATIONXML_DIR, DATALESS_DIR, RESP_DIR,
-                       SACPZ_DIR, ALTERNATIVE_SACPZ_DIR,
-                       NETWORKS_SUBSET, CHANNELS_SUBSET)
-from .global_var import logger
+from . import logger
 
 class Station:
     """
@@ -191,8 +188,8 @@ def get_stats(filepath, channel='BHZ', fast=True):
     return stationstats
 
 
-def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(),
-                 database=False, networks=NETWORKS_SUBSET, channels=CHANNELS_SUBSET,
+def get_stations(mseed_dir, xml_inventories=(), dataless_inventories=(),
+                 database=False, networks=None, channels=None,
                  startday=None, endday=None, coord_tolerance=1E-4, verbose=True):
     """
     Gets the list of stations from miniseed files, and
@@ -311,7 +308,7 @@ def get_stations(mseed_dir=MSEED_DIR, xml_inventories=(), dataless_inventories=(
                 stations.remove(sta)
     return stations
 
-def get_station_database(stationinfo_dir=STATIONINFO_DIR, verbose=False):
+def get_station_database(stationinfo_dir=None, verbose=False):
     """
     Reads station location information
 
@@ -336,7 +333,7 @@ def get_station_database(stationinfo_dir=STATIONINFO_DIR, verbose=False):
     logger.info("%d stations found.", len(stations))
     return stations
 
-def get_stationxml_inventories(stationxml_dir=STATIONXML_DIR, verbose=False):
+def get_stationxml_inventories(stationxml_dir=None, verbose=False):
     """
     Reads inventories in all StationXML (*.xml) files
     of specified dir
@@ -366,7 +363,7 @@ def get_stationxml_inventories(stationxml_dir=STATIONXML_DIR, verbose=False):
     return inventories
 
 
-def get_RESP_filelists(resp_filepath=RESP_DIR, verbose=True):
+def get_RESP_filelists(resp_filepath=None, verbose=True):
     """
     Reads response given by RESP files whose names organized as RESP.<network>.<station>.<channel>
     e.g:RESP.XJ.AKS.BHZ
@@ -374,26 +371,26 @@ def get_RESP_filelists(resp_filepath=RESP_DIR, verbose=True):
     resp_filepath = []
 
     # list of RESP* files
-    flist = glob.glob(pathname=os.path.join(RESP_DIR,"RESP*"))
+    flist = glob.glob(pathname=os.path.join(resp_filepath,"RESP*"))
 
     if verbose:
         if flist:
             logger.info("Scanning RESP files")
         else:
             s = u"Could not find any RESP file (RESP*) in dir:{}!"
-            logger.info(s.format(RESP_DIR))
+            logger.info(s.format(resp_filepath))
 
     for f in flist:
         if verbose:
-            print(os.path.basename(f))
-        resp_filepath.append(RESP_DIR+str(f))
+            logger.debug("".format(os.path.basename(f)))
+        resp_filepath.append(resp_filepath+str(f))
 
     if flist and verbose:
         logger.info("RESP files scanning finished Suc!")
 
     return resp_filepath
 
-def get_SACPZ_filelists(resp_filepath=SACPZ_DIR, verbose=True):
+def get_SACPZ_filelists(resp_filepath=None, verbose=True):
     """
     Reads response given by RESP files whose names organized as
     <year>.SAC.PZS.<network>.<station>.<channel>
@@ -423,7 +420,7 @@ def get_SACPZ_filelists(resp_filepath=SACPZ_DIR, verbose=True):
         logger.info("SAC PZ files scanning finished Suc!")
     return resp_file_path
 
-def get_dataless_inventories(dataless_dir=DATALESS_DIR, verbose=False):
+def get_dataless_inventories(dataless_dir=None, verbose=False):
     """
     Reads inventories in all dataless seed (*.dataless) and
     pickle (*.pickle) files of specified dir

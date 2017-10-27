@@ -19,7 +19,8 @@ import pyproj
 import itertools as it
 from PyPDF2.pdf import PdfFileReader, PdfFileWriter
 
-from .psconfig import get_global_param, logger
+from .psconfig import get_global_param
+from . import logger
 # ====================================================
 # parsing configuration file to import some parameters
 # ====================================================

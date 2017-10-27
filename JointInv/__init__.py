@@ -6,6 +6,7 @@ JointInv
 A software for joint inversion  of ambient noise and earthquake surface wave
 """
 import doctest
+import logging
 
 class Bunch(dict):
     """Container object for global parametres
@@ -51,6 +52,16 @@ class Bunch(dict):
         # Overriding __setstate__ to be a noop has the effect of
         # ignoring the pickled __dict__
         pass
+
+
+# Setup the logger
+FORMAT = "[%(asctime)s]  %(levelname)s: %(message)s"
+logging.basicConfig(
+    level=logging.DEBUG,
+    format=FORMAT,
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 
 __title__ = "JointInv"
