@@ -89,8 +89,7 @@ ALTERNATIVE_SACPZ_DIR = ../data/info/CSNPZ
 STATIONINFO_DIR = ../data/info/station.info
 
 # Teleseismic part
-TRIMMER_OUTPUT_DIR = ./data/rawtraces
-ISOLATION_OUTPUT_DIR = ./data/isotraces
+DATASET_DIR = ./data
 TELESEISMIC_DISPERSION_DIR = ./output/teleseismic_dispersion         
 CATALOG_DIR = ../data/info/catalog.csv
 
@@ -172,10 +171,10 @@ USE_COMBINATION = True
 USE_COMBINATION_RESP = False        
 # Use resp to combination else use sac PZ files
 
-FIRSTDAY = 02/01/2015                
+FIRSTDAY = 01/01/2015                
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 03/01/2015                 
+LASTDAY = 20/01/2015                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.9                      

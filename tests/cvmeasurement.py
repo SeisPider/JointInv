@@ -1,87 +1,142 @@
-#! /usr/bin/env python
+# /usr/bin/env python
+# -*- coding:utf-8 -*-
+from JointInv import teleseis, pserrors, logger
+from JointInv.psconfig import  get_global_param
+from JointInv.pstwostation import StasCombine 
+
+from itertools import combinations, repeat
 import os
-from os.path import join
-import sys
-import glob
-from sklearn.tree import DecisionTreeClassifier as DTC
-
-from JointInv.machinelearn.base import gen_disp_classifier, velomap
-from JointInv.psconfig import get_global_param, logger
-from JointInv import psutils
-
-# Isolate waveform of an specific event
-def event_isolation(eventdir, refgvpath, outpath,
-                    cpspath=None, classifier=None, periodmin=25, periodmax=100):
-
-    dispfiles = glob.glob(join(eventdir, "*.disp"))
-    for dispfile in dispfiles:
-
-        # mainly
-        judgement = velomap(dispfile, refgvpath, trained_model=classifier,
-                            treshold=2)
-        outfilepath = join(outpath, ".".join([judgement.id, "d"]))
-        judgement.MFT962SURF96(outfilepath, cpspath)
-        judgement.isowithsacmat96(srcpath=eventdir, surf96filepath=outfilepath,
-                                  cpspath=cpspath)
-        # move isolated traces and images in current directory to outpath 
-        SACsfiles = join(eventdir, "*.SACs")
-        cmndstr = "mv {} {}\n mv ./*.png {}".format(SACsfiles, outpath, outpath)
-        os.system(cmndstr)
-
-        # move measured dispersion curve to result path
-        cmndstr = "mv ./disp.out {}".format(join(outpath, ".".join([judgement.id,
-                                                                    "disp.out"])))
-        os.system(cmndstr)
+from os.path import join, basename
+from subprocess import call
+from copy import copy
+from glob import glob
+MULTIPLEPROCESSING = {'Initialization': True,
+                      'Measure disp': False}
 
 
-if __name__ == "__main__":
+NB_PROCESSING = None
+if any(MULTIPLEPROCESSING.values()):
+    import multiprocessing as mp
+    mp.freeze_support()  # for windows
 
+# Parameters Determination
+gbparam = get_global_param("../data/configs")
+
+outbasename = ['teleseismic', '{}-{}'.format(gbparam.fstday.year,
+                                             gbparam.endday.year), 'XJ']
+outfilepath = os.path.join(gbparam.teledisp_dir, '_'.join(outbasename))
+
+# import catalog and stations
+catalogs = teleseis.get_catalog(catalog=gbparam.catalog_dir, fstday=gbparam.fstday,
+                                endday=gbparam.endday)
+stations = teleseis.scan_stations(dbdir=gbparam.stationinfo_dir, 
+                                  sacdir=join(gbparam.dataset_dir, "isotraces"),
+                                  fstday=gbparam.fstday, endday=gbparam.endday,
+                                  dbtype="iso")
+# combine station pairs
+station_pairs = list(combinations(stations, 2))
+
+# select common line station_pairs and events
+# each element in judgment indicates a judgement result
+# and filter them
+judgements = [teleseis.common_line_judgement(event, station_pair)
+             for event in catalogs for station_pair in station_pairs]
+judgements = filter(lambda v: v is not None, judgements)
+
+def get_useable_combine(judgement):
     """
-    Isolate fundamental rayleigh wave with automatically picked group velocity
-    dispersion curve with Decision Tree algorithm
+    Initializing func that return instance of clas Tscombine
+    Function is ready to be parallelized
     """
-    # import configuration file
-    gbparam = get_global_param("../data/configs/")
-    cpspath = gbparam.cpspath
-
-    # import training data and train model
-    clf = gen_disp_classifier() 
-
-    # set para. for extract rough group velocity curve
+    station1 = judgement[0]
+    station2 = judgement[1]
+    event = judgement[2]
     try:
-        rootdir =  gbparam.isolation_output_dir
-    except IndexError:
-        logger.error("Please input directory of dataset !")
-        rootdir = input()
+        stascombine = StasCombine(sta1=station1, sta2=station2, event=event)
+        errmsg = None
+    except pserrors.TracesNotCorrected as err:
+        # cannot initialize class as response of traces area not removed
+        stascombine = None
+        errmsg = '{} -> skipping'.format(err)
+    except Exception as err:
+        # Unhandled exception
+        stascombine = None
+        errmsg = 'Unhandled error -> {}'.format(err)
+    if errmsg:
+        # print error message
+        logger.error("{}.{}-{}.{}[{}]".format(station1.network, station1.name,
+                                              station2.network, station2.name,
+                                              errmsg))
+    return stascombine
 
-    permin, permax = 25, 100  # set period region
-    velomin, velomax = gbparam.signal_window_vmin, gbparam.signal_window_vmax
-    eventlist = glob.glob(join(rootdir, "rawtraces", "*"))
-    refgvpath = "../data/info/SREGN.ASC"
 
-    allsacmftpath = psutils.locate_external_scripts("allsacmft.sh")
+# class initialization and waveform import
+if MULTIPLEPROCESSING['Initialization']:
+    # multipleprocessing turned on: one process per combination
+    pool = mp.Pool(NB_PROCESSING)
+    combinations = pool.map(get_useable_combine, judgements)
+    pool.close()
+    pool.join()
+else:
+    combinations = [get_useable_combine(s) for s in judgements]
+
+def get_possible_dispersion_point(combination, cpspath, dataset_dir, pmin=25,
+                                  pmax=100):
+    """
+    Export possible dispersion points with sacpom96 and handle name of files
+
+    Parameter
+    =========
+
+    combination : class `StasCombine`
+        Class combination stations in the same line and event information
+    cpspath : string or path-like object
+        Indeicate location of computer program in seismology version <- 3.30
+    pmin : int or float
+        Minimum period for dispersion curve extraction
+    pmax : int or float
+        Maximum period for dispersion curve extraction
+    """
+    cbn = copy(combination)
+    eventid = cbn.event['id']
+    err= None 
+    # judge whether combination exist
+    logger.info("Handling combination -> {}".format(cbn.id))
+    tr1pathdir = join(cbn.sta1.basedir, eventid, cbn.sta1.file)
+    tr2pathdir = join(cbn.sta2.basedir, eventid, cbn.sta2.file)
+    tr1path = glob(tr1pathdir)
+    tr2path = glob(tr2pathdir)
+    if not tr1path or not tr2path:
+        logger.info("No file {} or {}".format(tr1pathdir, tr2pathdir))
+        return
     
-    for event in eventlist:
-        
-        # automatically perform sacmft96
-        cmndstr = "sh {} {} {} {} {} {}".format(allsacmftpath, event,
-                                                permin, permax, velomin, velomax)
-        os.system(cmndstr)
+    # operate with sacpom96
+    with open("cmdfil", "w") as cmdfil:
+        string = "{}\n{}".format(str(tr1path[0]), str(tr2path[0]))
+        cmdfil.writelines(string)
+    sacpompath = join(cpspath, "sacpom96")
+    cmdstring = "{} -C ./cmdfil -pmin {} -pmax {} -V -E -nray 250 -R -S >> log.info".format(
+                sacpompath, pmin, pmax)
+    call(cmdstring, shell=True, stderr=err)
 
-        # check and create output dir
-        eventid = event.split("/")[-1]
-        outputdir = join(rootdir, "isotraces", eventid)
-        os.makedirs(outputdir, exist_ok=True)
-        
-        # isolate traces of this event
-        try:
-            event_isolation(event, refgvpath, outputdir, cpspath=cpspath,
-                            classifier=clf, periodmin=permin, periodmax=permax)
-            msg = 'ok'
-        except Exception as err:
-            # Unhandled exception!
-            msg = 'Unhandled error: {}'.format(err)
-        continue
-        
-        # measure clean phase velocity dispersion curve
+    # move files to output directory
+    for filename in glob("./[Pp][Oo][Mm]96*"):
+       
+        filebasename = basename(filename) 
+        # set the base dirname
+        basedir = join(dataset_dir, "isotraces")
+        filebasename = ".".join([combination.id, filebasename])
+        desdirname = join(basedir, eventid, filebasename)
 
+        cmdstring = "mv {} {} >> log.info".format(filename, desdirname)
+        call(cmdstring, shell=True, stderr=err)
+    return err
+
+for combination in combinations:
+    get_possible_dispersion_point(combination, gbparam.cpspath, 
+                                   gbparam.dataset_dir)
+
+# ouput matched two stationsi
+with open("./combination.info", 'w') as f:
+    for combination in combinations:
+        f.writelines(combination.id+" \n")

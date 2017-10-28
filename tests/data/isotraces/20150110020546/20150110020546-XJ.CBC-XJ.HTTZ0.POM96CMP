@@ -1,0 +1,3 @@
+#!/bin/sh
+ 
+sdpegn96 -X0  2.00 -Y0  1.00 -XLEN  6.00 -YLEN  6.00 -XMIN   26.9     -XMAX   60.2     -YMIN  2.00 -YMAX  5.00 -PER  -R -C -NOBOX -XLOG -YLIN 

@@ -290,7 +290,8 @@ def read_catalog(catalog):
                             "latitude": float(latitude),
                             "longitude": float(longitude),
                             "depth": float(depth),
-                            "magnitude": float(magnitude)}
+                            "magnitude": float(magnitude),
+                            "id": UTCDateTime(origin).strftime("%Y%m%d%H%M%S")}
 
                 event = {origindate: [subevent]}
                 events.update(event)
@@ -299,7 +300,8 @@ def read_catalog(catalog):
                             "latitude": float(latitude),
                             "longitude": float(longitude),
                             "depth": float(depth),
-                            "magnitude": float(magnitude)}
+                            "magnitude": float(magnitude),
+                            "id": UTCDateTime(origin).strftime("%Y%m%d%H%M%S")}
                 events[origindate].append(subevent)
     return events
 

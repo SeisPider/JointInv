@@ -3,7 +3,9 @@
 """Module for teleseismic dispersion curves measurements
 """
 from .psstation import Station
+from .distaz import DistAz
 from . import trimmer, psutils, logger
+
 import os
 from copy import copy
 import itertools as it
@@ -99,7 +101,7 @@ def scan_stations(dbdir, sacdir, fstday, endday, networks=None, channels=None,
             continue
 
         # filter with channel and network
-        network, name, location, channel = filename.split(".")[-6:-2]
+        network, name, location, channel, mode, ext = filename.split(".")[-6:]
         if networks and network not in networks:
             continue
         if channels and channel not in channels:
@@ -111,13 +113,18 @@ def scan_stations(dbdir, sacdir, fstday, endday, networks=None, channels=None,
             station = next(s for s in stations if match(s))
         except StopIteration:
             # appending new station, with current subdir
+            commonfilename = ".".join(["*", network, name, location, channel,
+                                       mode, ext])
             station = Station(name=name, network=network, channel=channel,
-                              filename=filename, basedir=sacdir, subdirs=[subdir])
+                              filename=commonfilename, basedir=sacdir,
+                              subdirs=[subdir])
+
             stations.append(station)
         else:
             # appending subdir to list of subdirs of station
             station.subdirs.append(subdir)
 
+    logger.info("Scan stations during {} -> {}".format(fstday, endday))
     logger.info('Found {0} stations'.format(len(stations)))
     # adding lon/lat of stations from inventories
     logger.info("Inserting coordinates to stations from inventories")
@@ -176,6 +183,7 @@ def common_line_judgement(event, station_pair, minangle=2.0):
         the minimum angle between two station-event lines
     """
     sta1, sta2 = station_pair
+    
     # calculate azimuth and back-azimuth
     intersta = DistAz(sta1.coord[1], sta1.coord[0],
                       sta2.coord[1], sta2.coord[0])

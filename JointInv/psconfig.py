@@ -77,8 +77,8 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
 
     # output dirs
     CROSSCORR_DIR = config.get('paths', 'CROSSCORR_DIR')
-    TRIMMER_OUTPUT_DIR = config.get('paths', 'TRIMMER_OUTPUT_DIR')
-    ISOLATION_OUTPUT_DIR = config.get('paths', 'ISOLATION_OUTPUT_DIR')
+    #TRIMMER_OUTPUT_DIR = config.get('paths', 'TRIMMER_OUTPUT_DIR')
+    DATASET_DIR = config.get('paths', 'DATASET_DIR')
     TELESEISMIC_DISPERSION_DIR = config.get(
         'paths', 'TELESEISMIC_DISPERSION_DIR')
 
@@ -262,8 +262,8 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
         stationinfo_dir=STATIONINFO_DIR,
         crosscorr_dir=CROSSCORR_DIR,
         teledisp_dir=TELESEISMIC_DISPERSION_DIR,
-        trimmer_output_dir=TRIMMER_OUTPUT_DIR,
-        isolation_output_dir=ISOLATION_OUTPUT_DIR,
+        #trimmer_output_dir=TRIMMER_OUTPUT_DIR,
+        dataset_dir=DATASET_DIR,
         catalog_dir=CATALOG_DIR,
 
         cpspath=COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR,

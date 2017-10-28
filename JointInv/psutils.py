@@ -33,10 +33,25 @@ def filelist(basedir, startday=None, endday=None, ext=None, subdirs=True):
     """
     Returns the list of files in *basedir* (and subdirs if
     *subdirs* is True) whose extendion is *ext*
+
+    Parameters
+    ==========
+
+    basedir : string ot path-like object
+        Base directory for scanning
+    startday : datetime or UTCDateTime object
+        Specific start time of scanning 
+    endday : datetime or UTCDateTime object
+        Specific end time of scanning 
+    ext : string
+        Specific suffix for scanning
+    subdirs : Boolean
+        Determine whether scan files in sub-directory of basedir
     """
     # list of files and dirs
     flist = os.listdir(basedir)
 
+    # list files
     files = []
     for f in flist:
         if os.path.isfile(os.path.join(basedir, f)):
@@ -44,6 +59,8 @@ def filelist(basedir, startday=None, endday=None, ext=None, subdirs=True):
                 files.append(f)
             elif os.path.splitext(f)[1].lower() == "." + ext.lower():
                 files.append(f)
+    
+    # handle directories
     if subdirs:
         for d in flist:
             # filter dirs based on date and reject files
@@ -62,6 +79,27 @@ def filelist(basedir, startday=None, endday=None, ext=None, subdirs=True):
                 for f in sublist:
                     files.append(os.path.join(d, f))
     return files
+
+def filelist_iso(basedir, startday=None, endday=None, ext=None, subdirs=True):
+    """
+    Returns the list of files in *basedir* (and subdirs if
+    *subdirs* is True) whose extendion is *ext* for isolated waveforms
+    """
+    # list of files and dirs
+    flist = os.listdir(basedir)
+
+    files = []
+    for f in flist:
+        if os.path.isfile(os.path.join(basedir, f)):
+            if not ext:
+                files.append(f)
+            elif os.path.splitext(f)[1].lower() == "." + ext.lower():
+                files.append(f)
+    if subdirs:
+        for d in flist:
+            # filter dirs based on date and reject files
+            if os.path.isfile(os.path.join(basedir, d)):
+                continue
 
 
 def openandbackup(filename, mode='w'):
