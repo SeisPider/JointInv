@@ -174,7 +174,7 @@ USE_COMBINATION_RESP = False
 FIRSTDAY = 01/01/2015                
 # first day of cross-correlation (d/m/y)
 #
-LASTDAY = 20/01/2015                 
+LASTDAY = 01/01/2017                 
 # last day of cross-correlation (d/m/y)
 #
 MINFILL = 0.9                      

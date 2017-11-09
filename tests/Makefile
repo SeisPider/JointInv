@@ -1,3 +1,6 @@
+iso: isolation.py
+	python isolation.py
+
 test: *.py
 	touch combination.info log.info
 	python cvmeasurement.py > LOG.INFO

@@ -1,14 +1,11 @@
 #/usr/bin/env python
 
 from JointInv.machinelearn.base import gen_disp_classifier, velomap
-from JointInv.machinelearn.twostationgv import interstagv, spline_interpolate
+from JointInv.machinelearn.twostationgv import interstagv
 import matplotlib.pyplot as plt
 import numpy as np
 from os.path import join
 import os
-
-
-from scipy.interpolate import interp1d
 
 clf = gen_disp_classifier()
 dispfile1 = "./sacmft/B00101Z00.sac.mft96.disp"
@@ -70,3 +67,8 @@ plt.title("{}-{}".format(roughgva.id, roughgvb.id))
 plt.xlim(permin, permax)
 plt.legend()
 plt.show()
+
+clf = gen_disp_classifier(mode="clean_cv", weighted=False)
+velomap(dispinfo="./sacpom/synthetic_event-B001-B002.pom96.dsp",
+                 refdisp=refdisp, trained_model=clf, velotype="clean_cv",
+                 line_smooth_judge=True, digest_type="poly", treshold=3)
