@@ -89,8 +89,8 @@ class Station:
         @type other: L{Station}
         @rtype: float
         """
-        lon1, lat1, _ = self.coord
-        lon2, lat2, _ = other.coord
+        lon1, lat1 = self.coord
+        lon2, lat2 = other.coord
         return psutils.dist(lons1=lon1, lats1=lat1, lons2=lon2, lats2=lat2)
 
     # =================

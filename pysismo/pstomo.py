@@ -6,9 +6,11 @@ velocity maps (obtained by inverting dispersion curves)
 from . import pserrors, psutils
 import itertools as it
 import numpy as np
+from numpy import linalg
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
 import os
+from copy import copy
 import glob
 import pickle
 import matplotlib.pyplot as plt
@@ -148,6 +150,24 @@ class DispersionCurve:
         if np.abs(self.periods[iperiod] - period) > EPS:
             raise Exception('Cannot find period in dispersion curve')
         return iperiod
+
+    def insert_teleseismic(self, filename):
+        """
+        Insert teleseismic dispersion curves measured base on two station 
+        arrival differential
+
+        Parameter
+        =========
+        filename : str or path-like obj.
+            dirname of teleseismic dispersionm curve
+        """
+        if os.path.exists(filename):
+            periods, gvs, stds = np.loadtxt(filename, unpack=True, usecols=(0,1,2))
+            self.teleperiods, self.telegvs, self.telestds = periods, gvs, stds
+            self.teletype = True
+        else:
+            self.teletype = False 
+        
 
     def update_parameters(self, minspectSNR=None, minspectSNR_nosdev=None,
                           maxsdev=None, minnbtrimester=None, maxperiodfactor=None):
@@ -302,7 +322,39 @@ class DispersionCurve:
             np.nan_to_num(self._SNRs[~has_sdev]) >= self.minspectSNR_nosdev
 
         # replacing velocities not passing the selection criteria with NaNs
-        return np.where(mask, self.v, np.nan), sdevs
+
+        # if no teleseismic dispersion curve are supplemented
+        if not hasattr(self, 'teletype'):
+            return np.where(mask, self.v, np.nan), sdevs
+        
+        # 4) add teleseismic dispersion curve into dispersion curve 
+        vreturn = copy(self.v)
+        stdreturn = copy(sdevs)
+        for iperiod, T0 in enumerate(self.teleperiods):
+            # common periods ?
+            mask = np.in1d(self.periods, T0)
+            vt, vccf = self.telegvs[iperiod], self.v[mask]
+            if T0 <= self.periods.max(): 
+                stdt, stdccf = self.telestds[iperiod], sdevs[mask]
+                if np.isnan(vt):
+                    vreturn[mask] = self.v[mask]
+                if np.isnan(vccf) and np.isnan(stdt) <= self.maxsdev:
+                    vreturn[mask] = self.telegvs[iperiod]
+                    stdreturn[mask] = self.telestds[iperiod]
+                if not np.isnan(vt) and not np.isnan(vccf):
+                    if not np.isnan(stdt) and not np.isnan(stdccf):
+                        vreturn[mask] = (vt/stdt) / (1/stdt + 1/stdccf) \
+                                      + (vccf/stdccf) / (1/stdt + 1/stdccf)
+                        stdreturn[mask] = stdt + stdccf
+            if T0 > self.periods.max():
+                stdt = self.telestds[iperiod]
+                if stdt <= self.maxsdev:
+                    self.v = np.append(self.v, vt)
+                    self.periods = np.append(self.periods, T0)
+                    vreturn = np.append(vreturn, vt)
+                    stdreturn = np.append(stdreturn, stdt)
+        return vreturn, stdreturn
+                
 
     def filtered_vel_sdev_SNR(self, period):
         """
@@ -881,7 +933,9 @@ class VelocityMap:
         # ... Ft.F part
         Q = F.T * F
         # ... Ht.H part
+        H = np.zeros_like(Q)
         for i, path_density in enumerate(self.density):
+            H[i,i] = np.exp(-2 * lambda_ * path_density)
             Q[i, i] += beta**2 * np.exp(-2 * lambda_ * path_density)
 
         self.Q = Q
@@ -909,6 +963,23 @@ class VelocityMap:
         if verbose:
             print("Setting up {0} x {0} resolution matrix (R)".format(self.G.shape[1]))
         self.R = self.Ginv * self.Cinv * self.G
+        
+        # export l curve
+        if verbose:
+            print("Estimate data fitness and model roughness")
+        # roughness
+        residual = self.G * self.mopt - self.dobs
+        self.datafitness = (residual).T * self.Cinv * residual
+
+        # alpha norm 
+        self.alphanorm = linalg.norm((F / alpha) * self.mopt)**2
+
+        # beta norm
+        self.betanorm =  linalg.norm(H * self.mopt)**2
+
+        # appendix param.
+        self.parameters = (alpha, beta, lambda_, correlation_length)
+
 
         # ===========================================================
         # Estimating spatial resolution at each node of the grid,

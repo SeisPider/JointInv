@@ -318,7 +318,7 @@ class CrossCorrelation:
         xcout = self if inplace else self.copy()
 
         n = len(xcout.timearray)
-        mid = (n - 1) / 2
+        mid = (n - 1) // 2
 
         # verifying that time array is symmetric wrt 0
         if n % 2 != 1:
