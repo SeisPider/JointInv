@@ -123,7 +123,7 @@ def get_possible_dispersion_point(combination, cpspath, dataset_dir, pmin=25,
         string = "{}\n{}".format(str(tr1path[0]), str(tr2path[0]))
         cmdfil.writelines(string)
     sacpompath = join(cpspath, "sacpom96")
-    cmdstring = "{} -C ./cmdfil -pmin {} -pmax {} -V -E -nray 250 -R -S >> log.info".format(
+    cmdstring = "{} -C ./cmdfil -pmin {} -pmax {} -V -E -nray 500 -R -S >> log.info".format(
                 sacpompath, pmin, pmax)
     call(cmdstring, shell=True, stderr=err)
 
@@ -149,7 +149,7 @@ for combination in combinations:
     get_possible_dispersion_point(combination, gbparam.cpspath,
                                   gbparam.dataset_dir)
 
-# ouput matched two stationsi
+# ouput matched two stations
 with open("./combination.info", 'w') as f:
     for combination in combinations:
         f.writelines(combination.id + " \n")

@@ -50,6 +50,29 @@ class interstagv(object):
         velo3 = deltadist / np.abs(arrspline1 - arrspline2)
         return insta1, insta2, periods, velo1, velo2, velo3
 
+class point(object):
+    """Class holding info. of one point in velomap
+    """
+    def __init__(self, period, velocity, veloerr):
+        self.per = period
+        self.velo = velocity
+        self.veloerr = veloerr
+    def length(self, point):
+        """Calculate length between two points
+        """
+        return np.sqrt((self.per - point.per)**2 + 10 *(self.velo - point.velo)**2)
+    def __eq__(self, point):
+        """comparision
+        """
+        digest = self.per == point.per and self.velo == point.velo
+        if digest and self.veloerr == point.veloerr:
+            return True
+        else:
+            return False
+    def __repr__(self):
+        return "Point @ {} s - {} km/s".format(self.per, self.velo)
+
+
 def spline_interpolate(x, y, splinex, fittype="poly", der=0, s=None):
     """Interpolation
     """

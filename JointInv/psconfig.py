@@ -261,7 +261,7 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
         sacpz_dir=SACPZ_DIR, alternative_sacpz=ALTERNATIVE_SACPZ_DIR,
         stationinfo_dir=STATIONINFO_DIR,
         crosscorr_dir=CROSSCORR_DIR,
-        teledisp_dir=TELESEISMIC_DISPERSION_DIR,
+        teleseismic_dispersion_dir=TELESEISMIC_DISPERSION_DIR,
         #trimmer_output_dir=TRIMMER_OUTPUT_DIR,
         dataset_dir=DATASET_DIR,
         catalog_dir=CATALOG_DIR,

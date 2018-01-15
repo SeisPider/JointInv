@@ -1,8 +1,8 @@
 #!/bin/sh
  
-# Data file = B00101Z00.sac
-# alpha =    300.000
+# Data file = B00101Z00.sacs
+# alpha =    100.000
  
-sdpegn96 -X0  5.10 -Y0  1.50 -XLEN  4.00 -YLEN  4.00 -XMIN   25.0     -XMAX   100.     -YMIN  2.00 -YMAX  5.00 -PER  -R -U -NOBOX -XLOG -YLIN 
+sdpegn96 -X0  5.10 -Y0  1.50 -XLEN  4.00 -YLEN  4.00 -XMIN   4.20     -XMAX   40.0     -YMIN  2.00 -YMAX  5.00 -PER  -R -U -NOBOX -XLOG -YLIN 
  
-sacspc96 -X0  1.30 -Y0  1.50 -XLEN  3.00 -YLEN  4.00 -XMIN   5.00     -XMAX   500.     -YMIN  0.100E-03 -YMAX  0.100 -PER   -NOBOX -XLOG -YLOG -f B00101Z00.sac
+sacspc96 -X0  1.30 -Y0  1.50 -XLEN  3.00 -YLEN  4.00 -XMIN   1.30     -XMAX   130.     -YMIN  0.100E-02 -YMAX   1.00 -PER   -NOBOX -XLOG -YLOG -f B00101Z00.sacs

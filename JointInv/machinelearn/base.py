@@ -10,7 +10,9 @@ import pandas as pd
 import numpy as np
 from sklearn.datasets.base import Bunch
 from sklearn.tree import DecisionTreeClassifier
-from .twostationgv import spline_interpolate, sort_measurements
+
+from .twostationgv import spline_interpolate, sort_measurements, point
+from .. import logger
 
 import matplotlib.pyplot as plt
 from copy import copy
@@ -169,15 +171,23 @@ class velomap(object):
             self.rdrefgvdisp(refdisp)
             self.records = self.obtain_velomap(dispinfo, mode=velotype)
             self.event, self.sta1, self.sta2 = (self.id).split("-")
+        
+        try:
+            if self.records == None:
+                logger.info("No records of {}[skipping]".format(self.id))
+                return None
+        except ValueError:
+            logger.info("Good records of {}".format(self.id))
 
         if trained_model:
             self.labels, self.midrec = self.classification(trained_model,
                                                             periodmin, periodmax)
-            # judge outlier function should be improved later
+        # judge outlier function should be improved later
         if line_smooth_judge:
             self.disprec = self.line_smooth_judge(treshold=treshold,
                                                   digest_type=digest_type)
         # trace back to obtain in relative short period
+        self._trace_back()
 
     def __repr__(self):
         """
@@ -309,6 +319,8 @@ class velomap(object):
 
         allvelo = obtain_elements(records, "velo")
         velo2 = obtain_elements(remindrec, "velo")
+        allveloerr = obtain_elements(records, "veloerr")
+        velo2err = obtain_elements(remindrec, "veloerr")
 
         ax.plot(insta, velo, "o", label="Machine-determined Velo.")
         ax.plot(allinsta, allvelo, "+", label="All Possible Points")
@@ -330,7 +342,7 @@ class velomap(object):
             except:
                 complper = obtain_elements(compliment_recs, "period")
             compvelo = obtain_elements(compliment_recs, "velo")
-            ax.plot(complper, compvelo, "o", label="Complicated")
+            ax.plot(complper, compvelo, "o", label="Complimented")
 
 
         # Figure adjustion
@@ -351,15 +363,103 @@ class velomap(object):
             plt.savefig("{}.det.{}.png".format(self.id, self.velotype))
             plt.close()
    
-    # TODO: line continuous test
-    def _trace_back(self):
+    # TODO: some outliers should be handled 
+    def _trace_back(self, percent=0.1):
         """Trace beck to relative short period
         """
         records = copy(self.records)
         remindrecords = copy(self.disprec)
 
-        # 
+        # obtain points
+        remindpoints = obtain_points(remindrecords)
+        # obtain all points
+        allpoints = obtain_points(records)
 
+        # found out points around reference dispersion curve
+        periods = np.array([x.per for x in allpoints])
+        velos = np.array([x.velo for x in allpoints])
+
+        splinevelo = spline_interpolate(self.refperiods, self.refvelo, periods)
+        diff = velos - splinevelo
+
+
+        # here define all the nearest points
+        maskarray = np.abs(diff) <= percent * splinevelo
+        nearperiods = periods[maskarray]
+        nearvelos = velos[maskarray]
+
+        nearpoints = [point for point in allpoints
+                               if (point.per in nearperiods) and (point.velo
+                                                                  in nearvelos)]
+        self.nearpoints = nearpoints
+        
+        # obtain reliable points and possible lines
+        reliapoints = [pt for pt in remindpoints if pt in nearpoints]
+        psspoints = [pt for pt in (remindpoints + nearpoints)
+                     if pt not in reliapoints]
+
+        # outlier in reliapoints digest
+
+        def slope_outlier(pointslist, treshold=1.96):
+            reliavelos = np.array([x.velo for x in pointslist])
+            slope = np.gradient(reliavelos) 
+            
+            slopestd, slopemean, outlier = slope.std(), slope.mean(), []
+            for idx , slop in enumerate(slope):
+                if np.abs(slop-slopemean) >=  treshold * slopestd and idx != 0:
+                    print("Outlier: {}".format(pointslist[idx-1]))
+                    outlier.append(pointslist[idx-1].velo)
+            inliner = [x for x in pointslist if x.velo not in outlier]
+            return inliner 
+        
+        #reliapoints = slope_outlier(reliapoints)
+        def obtain_nearest(reliable_points, possible_points):
+            velos = np.array([x.velo for x in reliapoints])
+            
+            rawslope = np.gradient(velos)
+            mean, std = rawslope.mean(), rawslope.std()
+
+            ptmin, ptmax = reliable_points[0], reliable_points[-1]
+            lenmin = np.array([point.length(ptmin)
+                               for point in possible_points])
+            lenmax = np.array([point.length(ptmax)
+                               for point in possible_points])
+            leftedge = possible_points[lenmin.argmin()]
+            rightedge = possible_points[lenmax.argmin()]
+
+            return leftedge, rightedge
+       
+        psspointsnum = len(psspoints) - 1
+        while (len(psspoints) > 0 and len(psspoints) != psspointsnum):
+            leftpt, rightpt = obtain_nearest(reliapoints, psspoints)
+            reliapoints.insert(0, leftpt)
+            reliapoints.append(rightpt)
+            psspointsnum = len(psspoints)
+            psspoints = [pt for pt in psspoints
+                         if pt.per < leftpt.per or pt.per > rightpt.per]
+        
+        # line fit and outlier digestion
+        
+        def spline_outlier(pointslist):
+            """Detect outlier with curve fit
+            """
+            periods = np.array([pt.per for pt in pointslist])
+            velos = np.array([pt.velo for pt in pointslist])
+
+            velospline = spline_interpolate(periods, velos, periods, fittype="spline"
+                                           ,s = 1)
+
+            residual = velos - velospline
+            std = residual.std()
+            
+            return [x for idx, x in enumerate(pointslist)
+                    if np.abs(x.velo-velospline[idx]) <= 1.96 * std]
+        
+        reliapoints = spline_outlier(reliapoints)
+        reliaperiods = np.array([pt.per for pt in reliapoints if pt.veloerr < pt.velo])
+        reliavelos = np.array([pt.velo for pt in reliapoints if pt.veloerr < pt.velo])
+        return reliapoints
+    
 
     def MFT962SURF96(self, outfile, cpspath):
         """
@@ -466,6 +566,30 @@ class velomap(object):
             plt.show()
         else:
             plt.savefig(filename)
+
+def obtain_points(records):
+    """obtain multiple points in records
+
+    Parameter
+    =========
+
+    records : list 
+        list of records
+    """
+    try:
+        pers = obtain_elements(records, "instaper")
+    except:
+        pers = obtain_elements(records, "period")
+    velos = obtain_elements(records, "velo")
+    veloerrs = obtain_elements(records, "veloerr")
+
+    ind = np.lexsort((velos,pers))
+    pers = pers[ind]
+    velos = velos[ind]
+    veloerrs = veloerrs[ind]
+    points = [point(pers[idx], velos[idx], veloerrs[idx])
+              for idx in range(len(pers))]
+    return points
 
 def obtain_elements(records, element):
     """Return numpy array of an element in records

@@ -1,8 +1,10 @@
 #/usr/bin/env python
 
 from JointInv.machinelearn.base import gen_disp_classifier, velomap
-from JointInv.machinelearn.twostationgv import interstagv
+from JointInv.machinelearn.twostationgv import interstagv, sort_measurements
 import matplotlib.pyplot as plt
+
+from scipy.interpolate import interp1d
 import numpy as np
 from os.path import join
 import os
@@ -67,8 +69,25 @@ plt.title("{}-{}".format(roughgva.id, roughgvb.id))
 plt.xlim(permin, permax)
 plt.legend()
 plt.show()
+plt.close()
 
 clf = gen_disp_classifier(mode="clean_cv", weighted=False)
-velomap(dispinfo="./sacpom/synthetic_event-B001-B002.pom96.dsp",
+clean_cv = velomap(dispinfo="./sacpom/synthetic_event-B001-B002.pom96.dsp",
                  refdisp=refdisp, trained_model=clf, velotype="clean_cv",
                  line_smooth_judge=True, digest_type="poly", treshold=3)
+periods = np.array([x.period for x in clean_cv.disprec])
+velos = np.array([x.velo for x in clean_cv.disprec])
+
+# sort two arrays
+wspline = np.arange(periods.min(), periods.max())
+periods, velos = sort_measurements(periods, velos)
+f2 = interp1d(periods, velos)
+c = f2(wspline)
+dcdt = np.gradient(c, 1, edge_order=2)
+u = c / (1 + wspline * dcdt / c)
+crefper, crefvelo = np.loadtxt("./SREGN.ASC", usecols=(2,5), unpack=True,
+                               skiprows=1)
+plt.plot(crefper, crefvelo)
+plt.plot(wpline, u, "+")
+plt.plot(wspline, u, "o")
+plt.show()

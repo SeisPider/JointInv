@@ -29,7 +29,6 @@ from .psconfig import (
     MINSPECTSNR, MINSPECTSNR_NOSDEV, MAXSDEV, MINNBTRIMESTER, MAXPERIOD_FACTOR,
     LONSTEP, LATSTEP, CORRELATION_LENGTH, ALPHA, BETA, LAMBDA,
     FTAN_ALPHA, FTAN_VELOCITIES_STEP, PERIOD_RESAMPLE)
-
 # ========================
 # Constants and parameters
 # ========================
