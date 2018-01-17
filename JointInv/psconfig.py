@@ -93,9 +93,8 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
     # use dataless files or stationXML files to remove instrument response?
     USE_DATALESSPAZ = config.getboolean('cross-correlation', 'USE_DATALESSPAZ')
     USE_STATIONXML = config.getboolean('cross-correlation', 'USE_STATIONXML')
-    USE_COMBINATION = config.getboolean('cross-correlation', 'USE_COMBINATION')
-    USE_COMBINATION_RESP = config.getboolean('cross-correlation',
-                                             'USE_COMBINATION_RESP')
+    USE_RESPONSE_SPIDER = config.getboolean('cross-correlation',
+                                            'USE_RESPONSE_SPIDER')
 
     # subset of stations to cross-correlate
     CROSSCORR_STATIONS_SUBSET = config.get('cross-correlation',
@@ -162,6 +161,7 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
     #   dist/vmax < t < dist/vmin
     # - the noise window has a fixed size and starts after a fixed trailing
     #   time from the end of the signal window
+    PERIOD_BANDS = json.loads(config.get('FTAN', 'PERIOD_BANDS'))
 
     SIGNAL_WINDOW_VMIN = config.getfloat('FTAN', 'SIGNAL_WINDOW_VMIN')
     SIGNAL_WINDOW_VMAX = config.getfloat('FTAN', 'SIGNAL_WINDOW_VMAX')
@@ -268,8 +268,7 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
 
         cpspath=COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR,
         use_datalesspaz=USE_DATALESSPAZ, use_stationxml=USE_STATIONXML,
-        use_combination=USE_COMBINATION,
-        use_combination_resp=USE_COMBINATION_RESP,
+        use_response_spider=USE_RESPONSE_SPIDER,
         crosscorr_stations_subset=CROSSCORR_STATIONS_SUBSET,
         cross_stations_delete=CROSS_STATIONS_DELETE,
         network_subset=NETWORKS_SUBSET,
@@ -285,8 +284,9 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
         window_freq=WINDOW_FREQ,
         crosscorr_tmax=CROSSCORR_TMAX,
 
-        velomax=VELOMAX,
-        velomin=VELOMIN,
+        velomax=VELOMAX, velomin=VELOMIN,
+
+        period_bands = PERIOD_BANDS,
         signal_window_vmin=SIGNAL_WINDOW_VMIN,
         signal_window_vmax=SIGNAL_WINDOW_VMAX,
         signal2noise_tail=SIGNAL2NOISE_TRAIL,

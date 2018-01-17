@@ -92,6 +92,11 @@ class Trimmer(object):
         self.stations = read_stations(stationinfo)
         self.events = read_catalog(catalog)
         self.by_speed = {"maximum": velomax, "minimum": velomin}
+    
+    def __repr__(self):
+        """Representation of class trimmer
+        """
+        return "<Waveform trimmer for teleseismic surface wave>"
 
 
     def _writesac(self, stream, event, station, outdir):

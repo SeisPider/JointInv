@@ -1,4 +1,4 @@
-A softwave for Seismic Joint Inversion
+A softwave for Surface wave inversion 
 ======================================
 
 Developing softwave for seismic joint inversion

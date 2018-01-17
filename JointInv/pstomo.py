@@ -20,19 +20,6 @@ from inspect import getargspec
 
 
 # todo: discard measurments if too different from trimester velocities (see BB15B-SPB)
-
-# ====================================================
-# parsing configuration file to import some parameters
-# ====================================================
-from .psconfig import (
-    SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX, SIGNAL2NOISE_TRAIL, NOISE_WINDOW_SIZE,
-    MINSPECTSNR, MINSPECTSNR_NOSDEV, MAXSDEV, MINNBTRIMESTER, MAXPERIOD_FACTOR,
-    LONSTEP, LATSTEP, CORRELATION_LENGTH, ALPHA, BETA, LAMBDA,
-    FTAN_ALPHA, FTAN_VELOCITIES_STEP, PERIOD_RESAMPLE)
-# ========================
-# Constants and parameters
-# ========================
-
 EPS = 1.0E-6
 
 # custom color map for seismic anomalies
@@ -87,12 +74,7 @@ class DispersionCurve:
     Class holding a dispersion curve, i.e., velocity
     as a function of period
     """
-    def __init__(self, periods, v, station1, station2,
-                 minspectSNR=MINSPECTSNR,
-                 minspectSNR_nosdev=MINSPECTSNR_NOSDEV,
-                 maxsdev=MAXSDEV,
-                 minnbtrimester=MINNBTRIMESTER,
-                 maxperiodfactor=MAXPERIOD_FACTOR,
+    def __init__(self, periods, v, station1, station2, PARAM,
                  nom2inst_periods=None):
         """
         Initiliazes the dispersion curve between the pair *station1*-*station2*
@@ -111,6 +93,11 @@ class DispersionCurve:
         @type station1: L{psstation.Station}
         @type station2: L{psstation.Station}
         """
+        minspectSNR=PARAM.minspectsnr,
+        minspectSNR_nosdev=PARAM.minspectsnr_nosdev,
+        maxsdev=PARAM.maxsdev,
+        minnbtrimester=PARAM.minmnbtrimester,
+        maxperiodfactor=PARAM.maxperiod_factor,
         # periods and associated velocities
         self.periods = np.array(periods)
         self.v = np.array(v)
@@ -187,11 +174,8 @@ class DispersionCurve:
         self.v_trimesters[trimester_start] = curve_trimester.v
         self._SNRs_trimesters[trimester_start] = curve_trimester._SNRs
 
-    def add_SNRs(self, xc, filter_alpha=FTAN_ALPHA, months=None,
-                 vmin=SIGNAL_WINDOW_VMIN,
-                 vmax=SIGNAL_WINDOW_VMAX,
-                 signal2noise_trail=SIGNAL2NOISE_TRAIL,
-                 noise_window_size=NOISE_WINDOW_SIZE):
+    def add_SNRs(self, xc, filter_alpha=20, months=None, vmin=2.0, vmax=5.0,
+                 signal2noise_trail=500, noise_window_size=500):
         """
         Adding spectral SNRs at each period of the dispersion curve.
         The SNRs are calculated from the cross-correlation data
@@ -582,7 +566,7 @@ class VelocityMap:
      element-by-element product, but the real matrix product.
     """
     def __init__(self, dispersion_curves, period, skipstations=(), skippairs=(),
-                 resolution_fit='cone', min_resolution_height=0.1,
+                 resolution_fit='cone', min_resolution_height=0.1, PARAM=None,
                  showplot=False, verbose=True, **kwargs):
         """
         Initializes the velocity map at period = *period*, from
@@ -645,16 +629,16 @@ class VelocityMap:
         self.period = period
 
         # reading inversion parameters
-        minspectSNR = kwargs.get('minspectSNR', MINSPECTSNR)
-        minspectSNR_nosdev = kwargs.get('minspectSNR_nosdev', MINSPECTSNR_NOSDEV)
-        minnbtrimester = kwargs.get('minnbtrimester', MINNBTRIMESTER)
-        maxsdev = kwargs.get('maxsdev', MAXSDEV)
-        lonstep = kwargs.get('lonstep', LONSTEP)
-        latstep = kwargs.get('latstep', LATSTEP)
-        correlation_length = kwargs.get('correlation_length', CORRELATION_LENGTH)
-        alpha = kwargs.get('alpha', ALPHA)
-        beta = kwargs.get('beta', BETA)
-        lambda_ = kwargs.get('lambda_', LAMBDA)
+        minspectSNR = PARAM.minspectSNR 
+        minspectSNR_nosdev = PARAM.minspectSNR_nosdev 
+        minnbtrimester = PARAM.minnbtrimester
+        maxsdev = PARAM.maxsdev
+        lonstep = PARAM.lonstep
+        latstep = PARAM.latstep
+        correlation_length = PARAM.correlation_length
+        alpha = PARAM.alpha
+        beta = PARAM.beta
+        lambda_ = PARAM.lambda_
 
         if verbose:
             print("Velocities selection criteria:")
@@ -724,7 +708,8 @@ class VelocityMap:
         # of the FTAN, and dt_xc the sampling interval of the
         # cross-correlation.
 
-        dv = np.maximum(FTAN_VELOCITIES_STEP, PERIOD_RESAMPLE * vels**2 / dists)
+        dv = np.maximum(PARAM.ftan_velocities_step ,
+                        PARAM.period_resample * vels**2 / dists)
         minsigmav = dv / np.sqrt(12)
         sigmav[~sigmav_isnan] = np.maximum(sigmav[~sigmav_isnan],
                                            minsigmav[~sigmav_isnan])
@@ -994,7 +979,7 @@ class VelocityMap:
         """
         return '<Velocity map at period = {} s>'.format(self.period)
 
-    def path_density(self, window=(LONSTEP, LATSTEP)):
+    def path_density(self, window=(1, 1)):
         """
         Returns the path density, that is, on each node of the
         grid, the number of paths that cross the rectangular

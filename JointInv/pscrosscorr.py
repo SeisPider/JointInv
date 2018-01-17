@@ -11,21 +11,18 @@ import obspy.io.xseed
 import obspy.signal.cross_correlation
 import obspy.signal.filter
 from obspy.signal.invsim import simulate_seismometer
-from obspy.io.sac.sacpz import attach_paz, attach_resp
-from obspy.core import AttribDict, read, UTCDateTime, Trace
+from obspy.core import AttribDict, read, UTCDateTime
 from obspy.signal.invsim import cosine_taper
+from obspy.io.sac.sacpz import attach_paz
+
 import numpy as np
 from numpy.fft import rfft, irfft, fft, ifft, fftfreq
 from scipy import integrate
 from scipy.interpolate import RectBivariateSpline, interp1d
 from scipy.optimize import minimize
 import itertools as it
-import os
-import shutil
-import glob
-import pickle
-import dill
-import copy
+import os, shutil, glob
+import pickle, dill, copy
 from collections import OrderedDict
 import datetime as dt
 from calendar import monthrange
@@ -34,25 +31,12 @@ import re
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib import gridspec
-import datetime as dt
+#from matplotlib import gridspec
 
 from termcolor import colored  # module to output colored string
-from JointInv.global_var import logger
+from . import logger
 plt.ioff()  # turning off interactive mode
 
-# ====================================================
-# parsing configuration file to import some parameters
-# ====================================================
-from .psconfig import (
-    CROSSCORR_DIR, FTAN_DIR, PERIOD_BANDS, CROSSCORR_TMAX, PERIOD_RESAMPLE,
-    CROSSCORR_SKIPLOCS, MINFILL, FREQMIN, FREQMAX, CORNERS, ZEROPHASE,
-    USE_COMBINATION_RESP, ALTERNATIVE_SACPZ_DIR,
-    ONEBIT_NORM, FREQMIN_EARTHQUAKE, FREQMAX_EARTHQUAKE, WINDOW_TIME, WINDOW_FREQ,
-    SIGNAL_WINDOW_VMIN, SIGNAL_WINDOW_VMAX, SIGNAL2NOISE_TRAIL, NOISE_WINDOW_SIZE,
-    RAWFTAN_PERIODS, CLEANFTAN_PERIODS, FTAN_VELOCITIES, FTAN_ALPHA, STRENGTH_SMOOTHING,
-    USE_INSTANTANEOUS_FREQ, MAX_RELDIFF_INST_NOMINAL_PERIOD, MIN_INST_PERIOD,
-    HALFWINDOW_MEDIAN_PERIOD, MAX_RELDIFF_INST_MEDIAN_PERIOD, BBOX_LARGE, BBOX_SMALL)
 # ========================
 # Constants and parameters
 # ========================
@@ -156,8 +140,7 @@ class CrossCorrelation:
     - a time array and a (cross-correlation) data array
     """
 
-    def __init__(self, station1, station2, xcorr_dt=PERIOD_RESAMPLE,
-                 xcorr_tmax=CROSSCORR_TMAX):
+    def __init__(self, station1, station2, xcorr_dt=None, xcorr_tmax=None):
         """
         @type station1: L{JointInv.psstation.Station}
         @type station2: L{JointInv.psstation.Station}
@@ -271,28 +254,6 @@ class CrossCorrelation:
         endday = (tr1.stats.endtime - ONESEC).date
         self.endday = max(self.endday, endday) if self.endday else endday
         self.nday += 1
-
-        """
-        # stacking cross-corr over single month
-        month = MonthYear((tr1.stats.starttime + ONESEC).date)
-        try:
-            monthxc = next(monthxc for monthxc in self.monthxcs
-                           if monthxc.month == month)
-        except StopIteration:
-            # appending new month xc
-            monthxc = MonthCrossCorrelation(
-                month=month, ndata=len(self.timearray))
-            self.monthxcs.append(monthxc)
-        # stacking cross-corr
-        try:
-            monthxc.dataarray += xcorr
-        except ValueError:
-            if len(monthxc.dataarray) > len(xcorr):
-                monthxc.dataarray[:-1] += xcorr
-            else:
-                monthxc.dataarray += xcorr[:-1]
-        monthxc.nday += 1
-        """
 
         # updating (adding) locs and ids
         self.locs1.add(tr1.stats.location)
@@ -413,10 +374,9 @@ class CrossCorrelation:
     def SNR(self, periodbands=None,
             centerperiods_and_alpha=None,
             whiten=False, months=None,
-            vmin=SIGNAL_WINDOW_VMIN,
-            vmax=SIGNAL_WINDOW_VMAX,
-            signal2noise_trail=SIGNAL2NOISE_TRAIL,
-            noise_window_size=NOISE_WINDOW_SIZE):
+            vmin=2, vmax=5.0,
+            signal2noise_trail=500,
+            noise_window_size=500):
         """
         [spectral] signal-to-noise ratio, calculated as the peak
         of the absolute amplitude in the signal window divided by
@@ -448,10 +408,10 @@ class CrossCorrelation:
 
         @type periodbands: (list of (float, float))
         @type whiten: bool
-        @type vmin: float
-        @type vmax: float
-        @type signal2noise_trail: float
-        @type noise_window_size: float
+        @type vmin: float default 2.0
+        @type vmax: float default 5.0
+        @type signal2noise_trail: float default 500
+        @type noise_window_size: float default 500
         @type months: list of (L{MonthYear} or (int, int))
         @rtype: L{numpy.ndarray}
         """
@@ -508,8 +468,7 @@ class CrossCorrelation:
         # returning 1d array if spectral SNR, 0d array if normal SNR
         return np.array(SNR) if len(SNR) > 1 else np.array(SNR[0])
 
-    def plot(self, whiten=False, sym=False, vmin=SIGNAL_WINDOW_VMIN,
-             vmax=SIGNAL_WINDOW_VMAX, months=None):
+    def plot(self, whiten=False, sym=False, vmin=2.0, vmax=5.0, months=None):
         """
         Plots cross-correlation and its spectrum
         """
@@ -567,12 +526,11 @@ class CrossCorrelation:
 
         plt.show()
 
-    def plot_by_period_band(self, axlist=None, bands=PERIOD_BANDS,
+    def plot_by_period_band(self, axlist=None, bands=[],
                             plot_title=True, whiten=False, tmax=None,
-                            vmin=SIGNAL_WINDOW_VMIN,
-                            vmax=SIGNAL_WINDOW_VMAX,
-                            signal2noise_trail=SIGNAL2NOISE_TRAIL,
-                            noise_window_size=NOISE_WINDOW_SIZE,
+                            vmin=2.0, vmax=5.0,
+                            signal2noise_trail=500,
+                            noise_window_size=500,
                             months=None, outfile=None):
         """
         Plots cross-correlation for various bands of periods
@@ -751,9 +709,9 @@ class CrossCorrelation:
             fig.show()
 
     def FTAN(self, whiten=False, phase_corr=None, months=None, vgarray_init=None,
-             optimize_curve=None, strength_smoothing=STRENGTH_SMOOTHING,
-             use_inst_freq=USE_INSTANTANEOUS_FREQ, vg_at_nominal_freq=None,
-             debug=False):
+             optimize_curve=None, strength_smoothing=1.0,
+             use_inst_freq=True, vg_at_nominal_freq=None,
+             PARAM=None, debug=False):
         """
         Frequency-time analysis of a cross-correlation function.
 
@@ -811,6 +769,12 @@ class CrossCorrelation:
         @type vg_at_nominal_freq: L{numpy.ndarray}
         @rtype: (L{numpy.ndarray}, L{numpy.ndarray}, L{DispersionCurve})
         """
+        # import Global Variables
+        RAWFTAN_PERIODS = PARAM.rawftan_periods
+        CLEANFTAN_PERIODS = PARAM.cleanftan_periods
+        FTAN_ALPHA, FTAN_VELOCITIES = PARAM.ftan_alpha, PARAM.ftan_velocities
+        MIN_INST_PERIOD = PARAM.min_inst_period
+        
         # no phase correction given <=> raw FTAN
         raw_ftan = phase_corr is None
         if optimize_curve is None:
@@ -868,6 +832,11 @@ class CrossCorrelation:
         # actually correspond to period 2.pi/|dphi/dt|(t=arrival time), with
         # phi(.) = phase[iT, :]  and arrival time = dist / vgarray[iT],
         # and we re-interpolate them along periods of *ftan_periods*
+
+        # Import Global Param.
+        MAX_RELDIFF_INST_NOMINAL_PERIOD = PARAM.max_reldiff_inst_norminal_period
+        MAX_RELDIFF_INST_MEDIAN_PERIOD = PARAM.max_reldiff_inst_median_period
+        HALFWINDOW_MEDIAN_PERIOD = PARAM.halwindow_median_period
 
         nom2inst_periods = None
         if use_inst_freq:
@@ -976,13 +945,10 @@ class CrossCorrelation:
         return ampl_resampled, phase_resampled, vgcurve
 
     def FTAN_complete(self, whiten=False, months=None, add_SNRs=True,
-                      vmin=SIGNAL_WINDOW_VMIN, vmax=SIGNAL_WINDOW_VMAX,
-                      signal2noise_trail=SIGNAL2NOISE_TRAIL,
-                      noise_window_size=NOISE_WINDOW_SIZE,
-                      optimize_curve=None,
-                      strength_smoothing=STRENGTH_SMOOTHING,
-                      use_inst_freq=USE_INSTANTANEOUS_FREQ,
-                      **kwargs):
+                      vmin=2.0, vmax=5.0, signal2noise_trail=500,
+                      noise_window_size=500, optimize_curve=None,
+                      strength_smoothing=1.0, use_inst_freq=True,
+                      PARAM=None, **kwargs):
         """
         Frequency-time analysis including phase-matched filter and
         seasonal variability:
@@ -1032,6 +998,10 @@ class CrossCorrelation:
         @rtype: (L{numpy.ndarray}, L{numpy.ndarray},
                  L{numpy.ndarray}, L{DispersionCurve})
         """
+        RAWFTAN_PERIODS = PARAM.rawftan_periods
+        FTAN_VELOCITIES = PARAM.ftan_velocities
+        CLEANFTAN_PERIODS = PARAM.cleanftan_periods
+
         # symmetrized, whitened cross-corr
         xc = self.symmetrize(inplace=False)
         if whiten:
@@ -1190,15 +1160,13 @@ class CrossCorrelation:
 
         # phase function of f
         return interp1d(x=freqarray[mask], y=phi)
-
+    
+    """
     def plot_FTAN(self, rawampl=None, rawvg=None, cleanampl=None, cleanvg=None,
                   whiten=False, months=None, showplot=True, normalize_ampl=True,
-                  logscale=True, bbox=BBOX_SMALL, figsize=(16, 5), outfile=None,
-                  vmin=SIGNAL_WINDOW_VMIN, vmax=SIGNAL_WINDOW_VMAX,
-                  signal2noise_trail=SIGNAL2NOISE_TRAIL,
-                  noise_window_size=NOISE_WINDOW_SIZE,
-                  **kwargs):
-        """
+                  logscale=True, bbox=None, figsize=(16, 5), outfile=None,
+                  vmin=2.0, vmax=5.0, signal2noise_trail=500, 
+                  noise_window_size=500, **kwargs):
         Plots 4 panels related to frequency-time analysis:
 
         - 1st panel contains the cross-correlation (original, and bandpass
@@ -1262,7 +1230,6 @@ class CrossCorrelation:
         @param logscale: set to True to plot log(ampl^2), to False to plot ampl
         @type logscale: bool
         @rtype: L{matplotlib.figure.Figure}
-        """
         # performing FTAN analysis if needed
         if any(obj is None for obj in [rawampl, rawvg, cleanampl, cleanvg]):
             rawampl, rawvg, cleanampl, cleanvg = self.FTAN_complete(
@@ -1453,7 +1420,7 @@ class CrossCorrelation:
         if showplot:
             plt.show()
         return fig
-
+    """
     def _plottitle(self, prefix='', months=None):
         """
         E.g., 'SPB-ITAB (365 days from 2002-01-01 to 2002-12-01)'
@@ -1606,9 +1573,9 @@ class CrossCorrelationCollection(AttribDict):
 
     def pairs_and_SNRarrays(self, pairs_subset=None, minspectSNR=None,
                             whiten=False, verbose=False,
-                            vmin=SIGNAL_WINDOW_VMIN, vmax=SIGNAL_WINDOW_VMAX,
-                            signal2noise_trail=SIGNAL2NOISE_TRAIL,
-                            noise_window_size=NOISE_WINDOW_SIZE):
+                            vmin=2.0, vmax=5.0, 
+                            signal2noise_trail=500,
+                            noise_window_size=500, PARAM=None):
         """
         Returns pairs and spectral SNR array whose spectral SNRs
         are all >= minspectSNR
@@ -1625,6 +1592,7 @@ class CrossCorrelationCollection(AttribDict):
         @type verbose: bool
         @rtype: dict from (str, str) to L{numpy.ndarray}
         """
+        PERIOD_BANDS = PARAM.period_bands
 
         if verbose:
             logger.info("Estimating spectral SNR of pair:")
@@ -1702,7 +1670,7 @@ class CrossCorrelationCollection(AttribDict):
             except pserrors.NaNError:
                 # got NaN
                 s = "got NaN in cross-corr between {s1}-{s2} -> skipping"
-                logger.warning(s.format(s1=siname, s2=s2name))
+                logger.warning(s.format(s1=s1name, s2=s2name))
         if verbose:
             print()
 
@@ -1867,9 +1835,8 @@ class CrossCorrelationCollection(AttribDict):
 
     def plot_spectral_SNR(self, whiten=False, minSNR=None, minspectSNR=None,
                           minday=1, mindist=None, withnets=None, onlywithnets=None,
-                          vmin=SIGNAL_WINDOW_VMIN, vmax=SIGNAL_WINDOW_VMAX,
-                          signal2noise_trail=SIGNAL2NOISE_TRAIL,
-                          noise_window_size=NOISE_WINDOW_SIZE):
+                          vmin=2.0, vmax=5.0, signal2noise_trail=500,
+                          noise_window_size=500, PARAM=None):
         """
         Plots spectral SNRs
         """
@@ -1905,6 +1872,7 @@ class CrossCorrelationCollection(AttribDict):
             sorted(list(SNRarrays.items()), key=lambda k_v: k_v[1][0]))
 
         # array of mid of time bands
+        PERIOD_BANDS = PARAM.period_bands
         periodarray = [(tmin + tmax) / 2.0 for (tmin, tmax) in PERIOD_BANDS]
         minperiod = min(periodarray)
 
@@ -1950,7 +1918,7 @@ class CrossCorrelationCollection(AttribDict):
 
     def plot_pairs(self, minSNR=None, minspectSNR=None, minday=1, mindist=None,
                    withnets=None, onlywithnets=None, pairs_subset=None, whiten=False,
-                   stationlabel=False, bbox=BBOX_LARGE, xsize=10, plotkwargs=None,
+                   stationlabel=False, bbox=None, xsize=10, plotkwargs=None,
                    SNRkwargs=None):
         """
         Plots pairs of stations on a map
@@ -2028,10 +1996,8 @@ class CrossCorrelationCollection(AttribDict):
     def FTANs(self, prefix=None, suffix='', whiten=False,
               normalize_ampl=True, logscale=True, mindist=None,
               minSNR=None, minspectSNR=None, monthyears=None,
-              vmin=SIGNAL_WINDOW_VMIN, vmax=SIGNAL_WINDOW_VMAX,
-              signal2noise_trail=SIGNAL2NOISE_TRAIL,
-              noise_window_size=NOISE_WINDOW_SIZE,
-              **kwargs):
+              vmin=2.0, vmax=5.0, signal2noise_trail=500,
+              noise_window_size=500, PARAM=None, **kwargs):
         """
         Exports raw-clean FTAN plots to pdf (one page per pair)
         and clean dispersion curves to pickle file by calling
@@ -2072,7 +2038,7 @@ class CrossCorrelationCollection(AttribDict):
         """
         # setting default prefix if not given
         if not prefix:
-            parts = [os.path.join(FTAN_DIR, 'FTAN')]
+            parts = [os.path.join(PARAM.ftan_dir, 'FTAN')]
             if whiten:
                 parts.append('whitenedxc')
             if mindist:
@@ -2350,7 +2316,7 @@ class CrossCorrelationCollection(AttribDict):
         return reftimearray
 
 
-def get_merged_trace(station, date, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL):
+def get_merged_trace(station, date, skiplocs=[], minfill=0.9):
     """
     Returns one trace extracted from selected station, at selected date
     (+/- 1 hour on each side to avoid edge effects during subsequent
@@ -2410,7 +2376,7 @@ def get_merged_trace(station, date, skiplocs=CROSSCORR_SKIPLOCS, minfill=MINFILL
 
 
 def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=(),
-                           resp_file_path=None):
+                           responses_spider=None):
     """
     Returns or attach instrumental response, from dataless seed inventories
     (as returned by psstation.get_dataless_inventories()) and/or StationXML
@@ -2431,31 +2397,19 @@ def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=(),
     @type xml_inventories: list of L{obspy.station.inventory.Inventory}
     @type resp_file_path: dictionary of response file path
     """
-    # find in CSNPZ_2016 first
-    # if not find then try to find it in CSNPZ
-    if resp_file_path:
+    if responses_spider:
+        # check source of trace
+        fileloc = None
+        for key in  responses_spider.keys():
+            fileloc = responses_spider[key].trace_response_spider(trace)
+            if fileloc:
+                break
 
-        if trace.id not in resp_file_path.keys():
-            filepath = os.path.join(ALTERNATIVE_SACPZ_DIR, trace.id+".sacpz")
-            print(filepath)
-            if not os.path.isfile(filepath):
-                logger.error("no alternative response for {}".format(trace.id))
-                raise pserrors.CannotPreprocess("No response found")
-            attach_paz(trace, filepath, tovel=True)
-            return 'self'
-        try:
-            # try to attach response from SACPZ file
-            attach_paz(trace, resp_file_path[trace.id], tovel=True)
-            return 'self'
-
-        except pserrors.NoPAZFound:
-            # try to attach response from SACPZ file
-            try:
-                attach_resp(trace, resp_file_path[trace.id], tovel=True)
-                return 'self'
-            except:
-                # no response found!
-                raise pserrors.CannotPreprocess("No response found")
+        if not fileloc:
+            raise pserrors.CannotPreprocess("No response found")
+        
+        attach_paz(trace, fileloc, tovel=True)
+        return 'self'
 
     # looking for instrument response...
     try:
@@ -2481,14 +2435,11 @@ def get_or_attach_response(trace, dataless_inventories=(), xml_inventories=(),
                 raise pserrors.CannotPreprocess("No response found")
 
 
-def preprocess_trace(trace, trimmer=None, paz=None, resp_file_path=None,
-                     freqmin=FREQMIN, freqmax=FREQMAX,
-                     freqmin_earthquake=FREQMIN_EARTHQUAKE,
-                     freqmax_earthquake=FREQMAX_EARTHQUAKE,
-                     corners=CORNERS, zerophase=ZEROPHASE,
-                     period_resample=PERIOD_RESAMPLE,
-                     onebit_norm=ONEBIT_NORM,
-                     window_time=WINDOW_TIME, window_freq=WINDOW_FREQ):
+def preprocess_trace(trace, trimmer=None, paz=None, responses_spider=None,
+                     freqmin=None, freqmax=None,
+                     freqmin_earthquake=None, freqmax_earthquake=None,
+                     corners=2, zerophase=True, period_resample=None,
+                     onebit_norm=False, window_time=None, window_freq=None):
     """
     Preprocesses a trace (so that it is ready to be cross-correlated),
     by applying the following steps:
@@ -2719,7 +2670,6 @@ def SACPZ_remove_response(trace, resp_filelist, freqmin, freqcora,
     @type freqmax: float
     """
     station_name = trace.stats.station
-    channel_name = trace.stats.channel
 
     if not (trace and resp_filelist):
         logger.erorr("No trace or SACPZ files!")
@@ -2804,7 +2754,7 @@ def load_pickled_xcorr(pickle_file):
     return xc
 
 
-def load_pickled_xcorr_interactive(xcorr_dir=CROSSCORR_DIR, xcorr_files='xcorr*.pickle*'):
+def load_pickled_xcorr_interactive(xcorr_dir=None, xcorr_files='xcorr*.pickle*'):
     """
     Loads interactively pickle-dumped cross-correlations, by giving the user
     a choice among a list of file matching xcorrFiles
@@ -2814,6 +2764,8 @@ def load_pickled_xcorr_interactive(xcorr_dir=CROSSCORR_DIR, xcorr_files='xcorr*.
     @rtype: L{CrossCorrelationCollection}
     """
 
+    if not xcorr_dir:
+        logger.error("Please input location of pickle file")
     # looking for files that match xcorrFiles
     pathxcorr = os.path.join(xcorr_dir, xcorr_files)
     flist = glob.glob(pathname=pathxcorr)
@@ -2919,7 +2871,7 @@ def FTAN(x, dt, periods, alpha, phase_corr=None):
 
 
 def extract_dispcurve(amplmatrix, velocities, periodmask=None, varray_init=None,
-                      optimizecurve=True, strength_smoothing=STRENGTH_SMOOTHING):
+                      optimizecurve=True, strength_smoothing=1.0):
     """
     Extracts a disperion curve (velocity vs period) from an amplitude
     matrix *amplmatrix*, itself obtained from FTAN.
@@ -3056,7 +3008,7 @@ def extract_dispcurve(amplmatrix, velocities, periodmask=None, varray_init=None,
 
 
 def optimize_dispcurve(amplmatrix, velocities, vg0, periodmask=None,
-                       strength_smoothing=STRENGTH_SMOOTHING):
+                       strength_smoothing=1.0):
     """
     Optimizing vel curve, i.e., looking for curve that really
     minimizes *dispcurve_penaltyfunc* -- and does not necessarily
@@ -3105,7 +3057,7 @@ def optimize_dispcurve(amplmatrix, velocities, vg0, periodmask=None,
     return vgcurve, resmin['fun']
 
 
-def dispcurve_penaltyfunc(vgarray, amplarray, strength_smoothing=STRENGTH_SMOOTHING):
+def dispcurve_penaltyfunc(vgarray, amplarray, strength_smoothing=1.0):
     """
     Objective function that the vg dispersion curve must minimize.
     The function is composed of two terms:
