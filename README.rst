@@ -2,6 +2,7 @@ A softwave for Surface wave inversion
 ======================================
 
 Developing softwave for seismic joint inversion
+test
 
 Dependence
 ==========
