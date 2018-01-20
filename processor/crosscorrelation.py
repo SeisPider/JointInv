@@ -133,6 +133,8 @@ stations = psstation.get_stations(mseed_dir=PARAM.mseed_dir,
                                   xml_inventories=xml_inventories,
                                   dataless_inventories=dataless_inventories,
                                   database=trimmer.stations,
+                                  networks=PARAM.network_subset,
+                                  channels=PARAM.channel_subset,
                                   startday=PARAM.fstday,
                                   endday=PARAM.endday,
                                   verbose=True)
@@ -153,16 +155,20 @@ for date in dates:
 
     # Exporting the collection of cross-correlations after the end of each
     # processed month (allows to restart after a crash from that date)
-    if date.day == 1 and xc:
-        lastmonth = date - dt.timedelta(days=1)
-        OUTFILESPATH = "{}_{}".format(
-            OUTFILESPATHORI, lastmonth.strftime("%Y%m"))
-        with open('{}.pickle'.format(OUTFILESPATH), 'wb') as f:
-            msg = "Exporting cross-correlations calculated to: \n " + f.name
-            logger.info(msg)
-            dill.pickle(xc, f, protocol=4)
 
-        gc.collect()
+    # export all ccfs in one file
+    lastdate = date - dt.timedelta(days=1)
+    monthdelta = date.month - lastdate.month
+    if monthdelta != 0 and xc:
+        OUTFILEPATH = "{}_{}".format(OUTFILESPATH, lastdate.strftime("%Y%m"))
+        msg = "Exporting cross-correlations calculated to: \n " + OUTFILEPATH
+        logger.info(msg)
+        xc.export(OUTFILEPATH, onlypickle=True)
+
+        # export ccfs into many sac files
+        xc.export2sac(crosscorr_dir=PARAM.crosscorr_dir)
+
+        # Reinitialize CrossCorrelationCollection class
         xc = pscrosscorr.CrossCorrelationCollection()
 
     logger.info("Processing data of day {}".format(date))
@@ -343,10 +349,7 @@ for date in dates:
         logger.error("No cross-correlation for this day")
         continue
 
-    logger.debug(colored("trace preprocess {}".format(dt.datetime.now() - t0),
-                         'red'))
 
-    t0 = dt.datetime.now()
     xcorrdict = {}
     if MULTIPROCESSING['cross-corr']:
         # if multiprocessing is turned on, we pre-calculate cross-correlation
@@ -361,7 +364,7 @@ for date in dates:
             """
             (s1, tr1), (s2, tr2) = pair
             logger.debug('{}-{} '.format(s1, s2))
-            shift = int(CROSSCORR_TMAX / PERIOD_RESAMPLE)
+            shift = int(PARAM.crosscorr_tmax / PARAM.period_resample)
             xcorr = obspy.signal.cross_correlation.correlate(
                 tr1, tr2, shift=shift)
             return xcorr
@@ -377,10 +380,6 @@ for date in dates:
     logger.info("Stacking cross-correlations")
     xc.add(tracedict=tracedict,
            stations=stations,
-           xcorr_tmax=CROSSCORR_TMAX,
+           xcorr_tmax=PARAM.crosscorr_tmax,
            xcorrdict=xcorrdict,
            verbose=not MULTIPROCESSING['cross-corr'])
-    delta = (dt.datetime.now() - t0).total_seconds()
-    msg = "Calculated and stacked cross-correlations in {:.1f} seconds".format(
-        delta)
-    logger.info(msg)

@@ -14,6 +14,9 @@ from obspy.signal.invsim import simulate_seismometer
 from obspy.core import AttribDict, read, UTCDateTime
 from obspy.signal.invsim import cosine_taper
 from obspy.io.sac.sacpz import attach_paz
+from obspy.io.sac import SACTrace
+from obspy import UTCDateTime
+
 
 import numpy as np
 from numpy.fft import rfft, irfft, fft, ifft, fftfreq
@@ -1492,6 +1495,61 @@ class CrossCorrelation:
             else:
                 return None
 
+    def xcorr2sac(self):
+        """Transfer self-defined crosscorrelation class to sactrace
+        """
+        sactr = SACTrace()
+        sactr.data = self.dataarray
+
+        # write station info into sactrace
+        sta1, sta2 = self.station1, self.station2
+
+        sta1name = ".".join([sta1.network, sta1.name])
+        sta2name = ".".join([sta2.network, sta2.name])
+
+        # set time
+        reftime =UTCDateTime(self.startday)
+        halflen = len(sactr.data) // 2
+        sactr.reftime = reftime 
+        sactr.b = -1.0 * halflen * sactr.delta
+        sactr.o = sactr.reftime 
+        sactr.iztype = 'io'
+        sactr.lcalda = True
+        # set receiver info
+
+        # depth of station are set to zero
+        # TODO: depth of stations are set to zero, we should have as check
+
+        sactr.stla, sactr.stlo, sactr.stdp = sta2.coord[0], sta2.coord[1], 0 
+        sactr.kstnm, sactr.knetwk = sta2.name, sta2.network
+        sactr.kcmpnm = sta2.channel
+
+        # set virtual evt. info
+        sactr.kuser1, sactr.kuser2 = sta1.network, sta1.channel
+        sactr.kevnm = sta1.name
+
+        # depth of virtual event are set to zero
+        sactr.evlo, sactr.evla, sactr.evdp = sta1.coord[0], sta1.coord[1], 0 
+        sactr.scale = 1
+
+        # set receiver comp. [0, 0] when two traces are vertical components 
+        sactr.cmpaz, sactr.cmpinc = 0, 0
+
+        # set stacked day
+        sactr.user0 = self.nday
+        
+        
+        # set time
+        sactr.kt0 = reftime.strftime("%Y%m%d")
+        sactr.kt1 = (reftime + dt.timedelta(days=self.nday)).strftime("%Y%m%d")
+
+
+        # set elev. of station and event
+        sactr.stel = sta2.coord[2] 
+        sactr.user2 = sta1.coord[1]
+
+        return sactr
+
 
 class CrossCorrelationCollection(AttribDict):
     """
@@ -1977,7 +2035,8 @@ class CrossCorrelationCollection(AttribDict):
         plt.ylim(bbox[2:])
         plt.show()
 
-    def export(self, outprefix, onlydill=False, stations=None, verbose=False):
+    def export(self, outprefix, onlydill=False, onlypickle=False, 
+               stations=None, verbose=False):
         """
         Exports cross-correlations to picke file and txt file
 
@@ -1986,12 +2045,54 @@ class CrossCorrelationCollection(AttribDict):
         """
         if onlydill:
             self._to_dillfile(outprefix, verbose=verbose)
+        elif onlypickle:
+            self._to_picklefile(outprefix, verbose=verbose)
         else:
             self._to_picklefile(outprefix, verbose=verbose)
             self._to_ascii(outprefix, verbose=verbose)
             self._pairsinfo_to_ascii(outprefix, verbose=verbose)
             self._stationsinfo_to_ascii(
                 outprefix, stations=stations, verbose=verbose)
+    
+    
+    def export2sac(self, crosscorr_dir=None):
+        """Export ccf with SAC format
+
+        Parameter
+        =========
+        crosscorr_dir : str or path-like
+            output dirrectory of CCFs 
+        """
+        station_pairs = self.pairs()
+        for pair in station_pairs:
+
+            sta1name, sta2name =  pair
+            # single crosscorrelation instance
+            xcorr = self[sta1name][sta2name]
+            sta1, sta2 = xcorr.station1, xcorr.station2
+            ids1, ids2 = xcorr.ids1, xcorr.ids2
+
+            for string in ids1: ids1str = string
+            for string in ids2: ids2str = string
+            # define time of this month as that extracted from startday
+            yearmonth = UTCDateTime(xcorr.startday).strftime("%Y%m") 
+            prefixsac = os.path.join(crosscorr_dir, "sac", yearmonth, \
+                                    ".".join([sta1.network, sta1.name]), \
+                                    "_".join([ids1str, ids2str])) 
+
+            # check existence of this station level folder
+            subdirsac = os.path.split(prefixsac)[0]
+            if not os.path.exists(subdirsac):
+                os.makedirs(subdirsac, exist_ok=True)
+
+            # format tranfer
+            sactr = xcorr.xcorr2sac()
+            filename = ".".join([prefixsac, "sac"])
+            
+            # export sac file
+            sactr.write(filename)
+            logger.info("Fini. {}".format(os.path.basename(filename)))
+
 
     def FTANs(self, prefix=None, suffix='', whiten=False,
               normalize_ampl=True, logscale=True, mindist=None,

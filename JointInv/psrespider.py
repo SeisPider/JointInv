@@ -149,7 +149,6 @@ class NetworkResponse(object):
             response[trid].update_periods(starttime, endtime, respfile)
         return response
 
-
 class TraceResponse(object):
     """class to handle response file of a particular trace
     """

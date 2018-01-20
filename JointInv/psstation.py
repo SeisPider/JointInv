@@ -270,7 +270,8 @@ def get_stations(mseed_dir, xml_inventories=(), dataless_inventories=(),
         # coordinates of station in database
         stationid = ".".join([sta.network,sta.name])
         try:
-            coords_set = [(stationinfo[stationid]['stlo'], stationinfo[stationid]['stla'])]
+            coords_set = [(stationinfo[stationid]['stlo'], stationinfo[stationid]['stla'],
+                           stationinfo[stationid]['stel'])]
         except KeyError:
             coords_set = ()
 

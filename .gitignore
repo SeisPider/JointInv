@@ -12,10 +12,11 @@ package-lock.json
 /data/Info/CSNPZ
 /data/Info/CSNPZ_2016/
 /data/Info/Responses/
-/data/Isotraces
-/data/Rawtraces
-/data/ContinueTrace
-/data/Configs
+/data/Isotraces/
+/data/Rawtraces/
+/data/ContinueTrace/
+/data/Configs/
+/data/RawTraces_backup/
 *.info
 output/
 shapefiles/
