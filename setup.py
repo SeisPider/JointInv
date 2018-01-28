@@ -73,8 +73,11 @@ setup(
             'sklearn',
             'matplotlib.pyplot',
             'obspy',
-            'termcolore',
-            'PDFPy2',
+            'termcolor',
+            'PyPDF2',
+            'pyproj',
+            'pyshp',
+            'dill',
         ],
     },
 
@@ -85,7 +88,7 @@ setup(
         'sample': ['package_data.dat'],
     },
 
-    data_files=[('my_data', ['data/*'])],
+    #data_files=[('my_data', ['data/'])],
 
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow

@@ -93,11 +93,6 @@ class DispersionCurve:
         @type station1: L{psstation.Station}
         @type station2: L{psstation.Station}
         """
-        minspectSNR=PARAM.minspectsnr,
-        minspectSNR_nosdev=PARAM.minspectsnr_nosdev,
-        maxsdev=PARAM.maxsdev,
-        minnbtrimester=PARAM.minmnbtrimester,
-        maxperiodfactor=PARAM.maxperiod_factor,
         # periods and associated velocities
         self.periods = np.array(periods)
         self.v = np.array(v)
@@ -112,11 +107,11 @@ class DispersionCurve:
         self.station2 = station2
 
         # selection parameters
-        self.minspectSNR = minspectSNR
-        self.minspectSNR_nosdev = minspectSNR_nosdev
-        self.maxsdev = maxsdev
-        self.minnbtrimester = minnbtrimester
-        self.maxperiodfactor = maxperiodfactor
+        self.minspectSNR = PARAM.minspectsnr
+        self.minspectSNR_nosdev = PARAM.minspectsnr_nosdev
+        self.maxsdev = PARAM.maxsdev
+        self.minnbtrimester = PARAM.minnbtrimester
+        self.maxperiodfactor = PARAM.maxperiod_factor
 
         # list of (nominal period, instantaneous period)
         self.nom2inst_periods = nom2inst_periods
@@ -312,7 +307,7 @@ class DispersionCurve:
         @rtype: list of L{numpy.ndarray}
         """
         # filtering criterion: periods <= distance * maxperiodfactor
-        dist = self.station1.dist(self.station2)
+        dist = self.dist()
         periodmask = self.periods <= self.maxperiodfactor * dist
         varrays = []
         for trimester_start, vels in list(self.v_trimesters.items()):

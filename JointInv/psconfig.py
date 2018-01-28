@@ -10,7 +10,7 @@ import glob
 import json
 import datetime as dt
 import numpy as np
-from os.path import dirname, join
+from os.path import dirname, join, basename
 
 from . import Bunch
 
@@ -43,10 +43,13 @@ def select_and_parse_config_file(basedir='./', ext='cnf', verbose=True):
     if verbose:
         print("Reading configuration file: {}".format(config_file))
 
+    # resolve config file name
+    conf_filename = basename(config_file).replace("." + ext, "")
+
     conf = configparser.ConfigParser()
     conf.read(config_file)
 
-    return conf
+    return conf, conf_filename
 
 # ==========================
 # parsing configuration file
@@ -58,8 +61,8 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
     Returns global parameters with a Dictionary-like object
     """
 
-    config = select_and_parse_config_file(basedir=configdirname,
-                                          ext='cnf', verbose=True)
+    config, conf_filename = select_and_parse_config_file(basedir=configdirname,
+                                                        ext='cnf', verbose=True)
 
     # -----
     # paths
@@ -220,6 +223,21 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
     MAX_RELDIFF_INST_MEDIAN_PERIOD = config.getfloat('FTAN',
                                                      'MAX_RELDIFF_INST_MEDIAN_PERIOD')
 
+    
+    
+    # --------------------------------
+    # Maps parameters 
+    # --------------------------------
+
+    COAST_SHP = config.get('maps', 'COAST_SHP')
+    TECTO_SHP = config.get('maps', 'TECTO_SHP')
+    TECTO_LABEL = config.get('maps', 'TECTO_LABELS')
+    TECTO_COLORS = json.loads(config.get('maps', 'TECTO_COLORS'))
+    BBOX_LARGE = json.loads(config.get('maps', 'BBOX_LARGE'))
+    BBOX_SMALL = json.loads(config.get('maps', 'BBOX_SMALL'))
+    
+    
+    
     # --------------------------------
     # Tomographic inversion parameters
     # --------------------------------
@@ -256,6 +274,7 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
     # With a value of 0.30, penalization becomes strong when path density < ~10
     LAMBDA = config.getfloat('tomography', 'LAMBDA')
     return Bunch(
+        conf_filename = conf_filename,
         mseed_dir=MSEED_DIR, stationxml_dir=STATIONXML_DIR,
         dataless_dir=DATALESS_DIR, resp_dir=RESP_DIR,
         sacpz_dir=SACPZ_DIR, alternative_sacpz=ALTERNATIVE_SACPZ_DIR,
@@ -289,7 +308,7 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
         period_bands = PERIOD_BANDS,
         signal_window_vmin=SIGNAL_WINDOW_VMIN,
         signal_window_vmax=SIGNAL_WINDOW_VMAX,
-        signal2noise_tail=SIGNAL2NOISE_TRAIL,
+        signal2noise_trail=SIGNAL2NOISE_TRAIL,
         noise_window_size=NOISE_WINDOW_SIZE,
 
         ftan_alpha=FTAN_ALPHA,
@@ -302,8 +321,8 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
         ftan_velocities=FTAN_VELOCITIES,
         ftan_velocities_step=FTAN_VELOCITIES_STEP,
 
-        strength_smooth=STRENGTH_SMOOTHING,
-        use_instantaneous_freq=USE_INSTANTANEOUS_FREQ,
+        strength_smoothing=STRENGTH_SMOOTHING,
+        use_inst_freq=USE_INSTANTANEOUS_FREQ,
 
         max_reldiff_inst_norminal_period=MAX_RELDIFF_INST_NOMINAL_PERIOD,
         min_inst_period=MIN_INST_PERIOD,
@@ -322,5 +341,13 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
 
         alpha=ALPHA,
         beta=BETA,
-        lambdap=LAMBDA
+        lambdap=LAMBDA,
+
+        coast_shp = COAST_SHP,
+        tecto_shp = TECTO_SHP,
+        tecto_label = TECTO_LABEL,
+        tecto_colors = TECTO_COLORS,
+        bbox_large = BBOX_LARGE,
+        bbox_small = BBOX_SMALL
+
     )

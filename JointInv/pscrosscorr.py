@@ -34,7 +34,7 @@ import re
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
-#from matplotlib import gridspec
+from matplotlib import gridspec
 
 from termcolor import colored  # module to output colored string
 from . import logger
@@ -281,7 +281,7 @@ class CrossCorrelation:
         xcout = self if inplace else self.copy()
 
         n = len(xcout.timearray)
-        mid = (n - 1) / 2
+        mid = (n - 1) // 2
 
         # verifying that time array is symmetric wrt 0
         if n % 2 != 1:
@@ -839,7 +839,7 @@ class CrossCorrelation:
         # Import Global Param.
         MAX_RELDIFF_INST_NOMINAL_PERIOD = PARAM.max_reldiff_inst_norminal_period
         MAX_RELDIFF_INST_MEDIAN_PERIOD = PARAM.max_reldiff_inst_median_period
-        HALFWINDOW_MEDIAN_PERIOD = PARAM.halwindow_median_period
+        HALFWINDOW_MEDIAN_PERIOD = PARAM.halfwindow_median_period
 
         nom2inst_periods = None
         if use_inst_freq:
@@ -943,15 +943,13 @@ class CrossCorrelation:
                                          v=vgarray,
                                          station1=self.station1,
                                          station2=self.station2,
-                                         nom2inst_periods=nom2inst_periods)
+                                         nom2inst_periods=nom2inst_periods,
+                                         PARAM=PARAM)
 
         return ampl_resampled, phase_resampled, vgcurve
 
     def FTAN_complete(self, whiten=False, months=None, add_SNRs=True,
-                      vmin=2.0, vmax=5.0, signal2noise_trail=500,
-                      noise_window_size=500, optimize_curve=None,
-                      strength_smoothing=1.0, use_inst_freq=True,
-                      PARAM=None, **kwargs):
+                      optimize_curve=None, PARAM=None, **kwargs):
         """
         Frequency-time analysis including phase-matched filter and
         seasonal variability:
@@ -1001,6 +999,17 @@ class CrossCorrelation:
         @rtype: (L{numpy.ndarray}, L{numpy.ndarray},
                  L{numpy.ndarray}, L{DispersionCurve})
         """
+        if not PARAM:
+            logger.error("No Global Parameter Dict. PARAM")
+            return None
+
+        
+        # Resolve global param.
+        vmin, vmax = PARAM.signal_window_vmin, PARAM.signal_window_vmax
+        signal2noise_trail = PARAM.signal2noise_trail
+        noise_window_size = PARAM.noise_window_size
+        strength_smoothing = PARAM.strength_smoothing
+        use_inst_freq = PARAM.use_inst_freq
         RAWFTAN_PERIODS = PARAM.rawftan_periods
         FTAN_VELOCITIES = PARAM.ftan_velocities
         CLEANFTAN_PERIODS = PARAM.cleanftan_periods
@@ -1019,6 +1028,7 @@ class CrossCorrelation:
                                         strength_smoothing=strength_smoothing,
                                         use_inst_freq=use_inst_freq,
                                         vg_at_nominal_freq=rawvg_init,
+                                        PARAM=PARAM,
                                         **kwargs)
         except pserrors.CannotCalculateInstFreq:
             # pb with instantaneous frequency: returnin NaNs
@@ -1053,7 +1063,7 @@ class CrossCorrelation:
                                             strength_smoothing=strength_smoothing,
                                             use_inst_freq=use_inst_freq,
                                             vg_at_nominal_freq=cleanvg_init,
-                                            **kwargs)
+                                            PARAM=PARAM, **kwargs)
         except pserrors.CannotCalculateInstFreq:
             # pb with instantaneous frequency: returnin NaNs
             logger.warning(
@@ -1164,12 +1174,11 @@ class CrossCorrelation:
         # phase function of f
         return interp1d(x=freqarray[mask], y=phi)
     
-    """
     def plot_FTAN(self, rawampl=None, rawvg=None, cleanampl=None, cleanvg=None,
                   whiten=False, months=None, showplot=True, normalize_ampl=True,
                   logscale=True, bbox=None, figsize=(16, 5), outfile=None,
-                  vmin=2.0, vmax=5.0, signal2noise_trail=500, 
-                  noise_window_size=500, **kwargs):
+                  PARAM=None, **kwargs):
+        """ 
         Plots 4 panels related to frequency-time analysis:
 
         - 1st panel contains the cross-correlation (original, and bandpass
@@ -1233,14 +1242,22 @@ class CrossCorrelation:
         @param logscale: set to True to plot log(ampl^2), to False to plot ampl
         @type logscale: bool
         @rtype: L{matplotlib.figure.Figure}
+        """
+        # Resolve global param.
+        vmin, vmax = PARAM.signal_window_vmin, PARAM.signal_window_vmax
+        signal2noise_trail = PARAM.signal2noise_trail
+        noise_window_size = PARAM.noise_window_size
+        strength_smoothing = PARAM.strength_smoothing
+        PERIOD_BANDS = PARAM.period_bands
+        RAWFTAN_PERIODS = PARAM.rawftan_periods
+        CLEANFTAN_PERIODS = PARAM.cleanftan_periods
+        FTAN_VELOCITIES = PARAM.ftan_velocities
+        bbox = PARAM.bbox_small 
         # performing FTAN analysis if needed
         if any(obj is None for obj in [rawampl, rawvg, cleanampl, cleanvg]):
             rawampl, rawvg, cleanampl, cleanvg = self.FTAN_complete(
                 whiten=whiten, months=months, add_SNRs=True,
-                vmin=vmin, vmax=vmax,
-                signal2noise_trail=signal2noise_trail,
-                noise_window_size=noise_window_size,
-                **kwargs)
+                PARAM=PARAM, **kwargs)
 
         if normalize_ampl:
             # normalizing amplitude at each period before plotting it
@@ -1261,6 +1278,7 @@ class CrossCorrelation:
                                 1, wspace=0.0, hspace=0.0)
         axlist = [fig.add_subplot(ss) for ss in gs1]
         self.plot_by_period_band(axlist=axlist, plot_title=False,
+                                 bands=PERIOD_BANDS,
                                  whiten=whiten, months=months,
                                  vmin=vmin, vmax=vmax,
                                  signal2noise_trail=signal2noise_trail,
@@ -1423,7 +1441,7 @@ class CrossCorrelation:
         if showplot:
             plt.show()
         return fig
-    """
+    
     def _plottitle(self, prefix='', months=None):
         """
         E.g., 'SPB-ITAB (365 days from 2002-01-01 to 2002-12-01)'
@@ -2075,7 +2093,13 @@ class CrossCorrelationCollection(AttribDict):
             for string in ids1: ids1str = string
             for string in ids2: ids2str = string
             # define time of this month as that extracted from startday
-            yearmonth = UTCDateTime(xcorr.startday).strftime("%Y%m") 
+
+            # As i calculate ccfs from chinese data
+            # starttime are usually ahead from real time
+            halft = UTCDateTime(xcorr.startday) + \
+                    dt.timedelta(days=int(xcorr.nday / 2))
+
+            yearmonth = UTCDateTime(halft).strftime("%Y%m") 
             prefixsac = os.path.join(crosscorr_dir, "sac", yearmonth, \
                                     ".".join([sta1.network, sta1.name]), \
                                     "_".join([ids1str, ids2str])) 
