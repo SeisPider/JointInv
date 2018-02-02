@@ -8,6 +8,7 @@ import obspy
 import obspy.core
 from obspy import read_inventory
 from obspy.io.xseed.utils import SEEDParserException
+from obspy import UTCDateTime
 import os
 import glob
 import pickle
@@ -270,8 +271,15 @@ def get_stations(mseed_dir, xml_inventories=(), dataless_inventories=(),
         # coordinates of station in database
         stationid = ".".join([sta.network,sta.name])
         try:
-            coords_set = [(stationinfo[stationid]['stlo'], stationinfo[stationid]['stla'],
-                           stationinfo[stationid]['stel'])]
+            time_list = stationinfo[stationid]
+            for subdict in time_list:
+                starttime = subdict["starttime"]
+                endtime = subdict["endtime"]
+                judgeday = UTCDateTime(startday)
+                if judgeday < endtime and judgeday > starttime:
+                    stlo, stla = subdict['stlo'], subdict['stla'],
+                    stel = subdict['stel']
+                    coords_set = [(stlo, stla, stel)]
         except KeyError:
             coords_set = ()
 

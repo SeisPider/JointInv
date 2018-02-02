@@ -231,9 +231,16 @@ class Trimmer(object):
             # every time, we should copy trace as it is in place change
             tr_copy = copy.copy(tr_ori)
 
+
+            time_list = self.stations[stationid]
+            for subdict in time_list:
+                starttime = subdict["starttime"]
+                endtime = subdict["endtime"]
+                if trstart < endtime and trstart > starttime:
+                    station = subdict
+            stlo, stla = station['stlo'], station['stla']
             dist = gps2dist_azimuth(event["latitude"], event["longitude"],
-                                    self.stations[stationid]["stla"],
-                                    self.stations[stationid]["stlo"])[0]
+                                    stla, stlo)[0]
             dist_km = dist / 1000.0
             logger.debug("dist_km -> {}".format(dist_km))
 
@@ -252,7 +259,7 @@ class Trimmer(object):
             st.append(tr_trim)
             # no previous output
             if not self.read_sac(event, tr_trim.id):
-                self._writesac(st, event, self.stations[stationid], outdir)
+                self._writesac(st, event, station, outdir)
                 continue
             # there is previous output
             for tr_pre in self.read_sac(event, tr_trim.id):
@@ -263,7 +270,8 @@ class Trimmer(object):
                 st.append(tr_pre)
             logger.debug("Stream -> {}".format(st))
             st.merge()
-            self._writesac(st, event, self.stations[stationid], outdir)
+            print(station)
+            self._writesac(st, event, station, outdir)
             logger.info("trim data of event -> {}".format(event['origin']))
 
     def view_station(self, sta_nm):
@@ -321,14 +329,36 @@ def read_stations(stationinfo):
     stations = {}
     with open(stationinfo, "r") as f:
         for line in f:
-            name, stla, stlo, stel = line.split()[0:4]
-            station = {
-                        name: {
-                                "stla": float(stla),
-                                "stlo": float(stlo),
-                                "stel": float(stel)
-                              }
-                      }
-            stations.update(station)
+            name, stla, stlo, stel, starttime, endtime = line.split()[0:6]
+            
+            # handle the time
+            try:
+                starttime = UTCDateTime(starttime)
+                endtime   = UTCDateTime(endtime)
+            except:
+                starttime = UTCDateTime("20090101")
+                endtime   = UTCDateTime("20500101")
+
+            if name not in stations.keys():
+                station = {
+                            name: [{
+                                    "stla": float(stla),
+                                    "stlo": float(stlo),
+                                    "stel": float(stel),
+                                    "starttime": starttime,
+                                    "endtime": endtime
+                                  }]
+                          }
+                stations.update(station)
+            else:
+                subdict=  {
+                            "stla": float(stla),
+                            "stlo": float(stlo),
+                            "stel": float(stel),
+                            "starttime": starttime,
+                            "endtime": endtime
+                          }
+                stations[name].append(subdict)
+
     logger.info("%d stations in database.", len(stations))
     return stations

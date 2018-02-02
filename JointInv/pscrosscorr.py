@@ -144,7 +144,7 @@ class CrossCorrelation:
     """
 
     def __init__(self, station1, station2, xcorr_dt=None, xcorr_tmax=None,
-                 startday=None, endday=None, nday=None, dataarray=None):
+                 startday=None, endday=None, nday=0, dataarray=None):
         """
         @type station1: L{JointInv.psstation.Station}
         @type station2: L{JointInv.psstation.Station}

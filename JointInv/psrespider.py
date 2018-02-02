@@ -129,24 +129,52 @@ class NetworkResponse(object):
         name, folder = self.network
         responsefiles = glob(join(folder, "_".join([self.prefix, name, "*"])))
 
-        response = {}
+        def time_checker(timestr):
+            """Check info. included in time string
+
+            Parameter
+            =========
+            timestr : str
+                time info
+            """
+
+            # Check string type : YYYYMM or YYYYMMDD
+            # If YYYYMM, set it to be first day this month
+            if len(timestr) == 6:
+                return UTCDateTime(timestr + "01")
+            elif len(timestr) == 8:
+                return UTCDateTime(timestr)
+            else:
+                logger.error("Can't resolve time string")
+                return None
+
         # obtain response files
+        response = {}
         for respfile in responsefiles:
             spliter = basename(respfile).split("_")
             if len(spliter) == 6:
                 _, net, sta, cha, startt, endt = spliter
-                endt = UTCDateTime(endt + "01")
+                starttime, endtime = time_checker(startt), time_checker(endt)
+                # starttime equals endtime, indicating this file only works
+                # during this month
+                if starttime == endtime:
+                    endtime += dt.timedelta(days=30)
 
             elif len(spliter) == 5:
                 _, net, sta, cha, startt = spliter
                 endt = UTCDateTime(dt.datetime.now())
-            starttime, endtime = UTCDateTime(startt + "01"), endt
+                starttime, endtime = time_checker(startt), endt
 
             # channel id
             trid = ".".join([net, sta, "00", cha])
             if trid not in response.keys():
                 response.update({trid: TraceResponse(trid)})
-            response[trid].update_periods(starttime, endtime, respfile)
+
+            if not starttime or not endtime:
+                logger.error("NoTimeInfo {}".format(".".join([net, sta, cha])))
+                continue
+            else:
+                response[trid].update_periods(starttime, endtime, respfile)
         return response
 
 class TraceResponse(object):
