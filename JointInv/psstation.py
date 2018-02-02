@@ -43,7 +43,7 @@ class Station:
         self.file = filename
         self.basedir = basedir
         self.subdirs = subdirs if subdirs else []
-        self.coord = coord if coord else (None, None)
+        self.coord = coord if coord else (None, None, None)
 
     def __repr__(self):
         """

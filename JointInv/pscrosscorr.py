@@ -11,7 +11,7 @@ import obspy.io.xseed
 import obspy.signal.cross_correlation
 import obspy.signal.filter
 from obspy.signal.invsim import simulate_seismometer
-from obspy.core import AttribDict, read, UTCDateTime
+from obspy.core import AttribDict, read
 from obspy.signal.invsim import cosine_taper
 from obspy.io.sac.sacpz import attach_paz
 from obspy.io.sac import SACTrace
@@ -143,7 +143,8 @@ class CrossCorrelation:
     - a time array and a (cross-correlation) data array
     """
 
-    def __init__(self, station1, station2, xcorr_dt=None, xcorr_tmax=None):
+    def __init__(self, station1, station2, xcorr_dt=None, xcorr_tmax=None,
+                 startday=None, endday=None, nday=None, dataarray=None):
         """
         @type station1: L{JointInv.psstation.Station}
         @type station2: L{JointInv.psstation.Station}
@@ -161,16 +162,22 @@ class CrossCorrelation:
         self.ids2 = set()
 
         # initializing stats
-        self.startday = None
-        self.endday = None
-        self.nday = 0
+        self.startday = startday
+        self.endday = endday
+        self.nday = nday
+        
+        nmax = int(xcorr_tmax / xcorr_dt)
+        nmax = int(xcorr_tmax / xcorr_dt)
+        if dataarray is not None:
+            self.dataarray = dataarray
+        else:
+            self.dataarray = np.zeros(2 * nmax + 1)
 
         # initializing time and data arrays of cross-correlation
-        nmax = int(xcorr_tmax / xcorr_dt)
         self.timearray = np.arange(-nmax * xcorr_dt,
                                    (nmax + 1) * xcorr_dt, xcorr_dt)
-        self.dataarray = np.zeros(2 * nmax + 1)
 
+        self.dt = xcorr_dt
         #  has cross-corr been symmetrized? whitened?
         self.symmetrized = False
         self.whitened = False
@@ -336,6 +343,86 @@ class CrossCorrelation:
 
         xcout.whitened = True
         return xcout
+   
+    def taper(self, PARAM, data=None, taperl=1.0, period_band=None):
+        """Seismogram tapering
+
+        Paranmeter
+        ==========
+        PARAM : dict
+            Global variables
+        taperl: float
+            Determine left boundy of tapering with taperl * tmax
+            where tmax is maximum period to perform FTAN
+        period_band : `numpy.array`
+            period band to perform FTAN
+        data  : `numpy.array`
+            raw data to be tapered
+
+        Reference
+        =========
+        This function comes from noisepy:https://github.com/NoisyLeon/NoisePy
+        """
+        if period_band is None:
+            period_band = PARAM.cleanftan_periods
+        if data is None:
+            data = self.dataarray
+        dt, delta, npts = self._get_xcorr_dt(), self.dist(), int(self._get_xcorr_nmax())
+        vmax, vmin = PARAM.signal_window_vmax, PARAM.signal_window_vmin
+        # taper number at the begin and end 
+        ntapb = int(taperl * period_band.max() / dt)
+        ntape = int(period_band.max() / dt)
+        omb, ome = np.pi/ntapb, np.pi/ntape
+
+
+        # seismogram tapering
+        nb = max(2, int((delta/vmax)/dt))
+        ne = min(npts, int((delta/vmin)/dt))
+
+        # taped data initialization
+        ncorr = int(ne+ntape)
+        if ncorr > npts:
+            ncorr = npts
+        tapeddata = np.append(data[:ncorr], np.zeros(npts - ncorr))
+
+        # zero padding and cosin tapering
+        ## left end of the signal
+        if nb-ntapb-1 > 0:
+            tapeddata [:nb-ntapb-1] = 0.0
+        if nb > ntapb :
+            k                        = np.arange(ntapb+1)+nb-ntapb
+            rwinb                    = (np.cos(omb*(nb-k)) + 1.0)/2.0
+            tapeddata[nb-ntapb-1:nb] = rwinb*tapeddata[nb-ntapb-1:nb]
+            sums                     = 2.0 * np.sum(rwinb)
+        else:
+            k                        = np.arange(nb)
+            rwinb                    = (np.cos(omb*(nb-k)) + 1.0)/2.0
+            tapeddata[:nb]           = rwinb*tapeddata[:nb]
+            sums                     = 2.0 * np.sum(rwinb)
+        ## right end of the signal
+        if ne+ntape < npts:
+            k                        = np.arange(ntape+1)+ne
+            rwine                    = (np.cos(ome*(ne-k)) + 1.0)/2.0
+            tapeddata[ne-1:ne+ntape]*=  rwine
+        elif ne < npts:
+            k                        = np.arange(ntape-ne+1)+ne
+            rwine                    = (np.cos(ome*(ne-k)) + 1.0)/2.0
+            tapeddata[ne-1:]        *= rwine
+        
+        
+        # detrend
+        sums     = sums+ne-nb-1
+        c        = np.sum(tapeddata[:ncorr])
+        c        = -c/sums
+        if nb > ntapb:
+            tapeddata[nb-ntapb-1:nb]   += rwinb * c
+        if ne+ntape < npts:
+            tapeddata[ne-1:ne+ntape]   += rwine * c
+        elif ne < npts:
+            tapeddata[ne-1:]           += rwine *c
+        tapeddata[nb:ne-1]             += c
+        timescale = np.arange(npts) * dt
+        return tapeddata, timescale 
 
     def signal_noise_windows(self, vmin, vmax, signal2noise_trail, noise_window_size):
         """
@@ -711,8 +798,8 @@ class CrossCorrelation:
         if fig:
             fig.show()
 
-    def FTAN(self, whiten=False, phase_corr=None, months=None, vgarray_init=None,
-             optimize_curve=None, strength_smoothing=1.0,
+    def FTAN(self, whiten=False, taper=False, phase_corr=None, months=None,
+             vgarray_init=None, optimize_curve=None, strength_smoothing=1.0,
              use_inst_freq=True, vg_at_nominal_freq=None,
              PARAM=None, debug=False):
         """
@@ -790,26 +877,31 @@ class CrossCorrelation:
         if whiten:
             xcout = xcout.whiten(inplace=False)
 
+        
         # cross-corr of desired months
         xcdata = xcout._get_monthyears_xcdataarray(months=months)
+        timearray, dt, dist = xcout.timearray, xcout._get_xcorr_dt(), xcout.dist()
         if xcdata is None:
             raise Exception('No data to perform FTAN in selected months')
-
+        if taper:
+            xcdata, timearray = xcout.taper(data=xcdata, PARAM=PARAM)
         # FTAN analysis: amplitute and phase function of
         # center periods T0 and time t
         ampl, phase = FTAN(x=xcdata,
-                           dt=xcout._get_xcorr_dt(),
+                           dt=dt,
                            periods=ftan_periods,
                            alpha=FTAN_ALPHA,
                            phase_corr=phase_corr)
 
         # re-interpolating amplitude and phase as functions
         # of center periods T0 and velocities v
-        tne0 = xcout.timearray != 0.0
+        tne0 = timearray != 0.0
         x = ftan_periods                                 # x = periods
-        y = (self.dist() / xcout.timearray[tne0])[::-1]  # y = velocities
+        y = (dist / timearray[tne0])[::-1]  # y = velocities
         zampl = ampl[:, tne0][:, ::-1]                   # z = amplitudes
         zphase = phase[:, tne0][:, ::-1]                 # z = phases
+        time_phase = np.array(zphase)
+        
         # spline interpolation
         ampl_interp_func = RectBivariateSpline(x, y, zampl)
         phase_interp_func = RectBivariateSpline(x, y, zphase)
@@ -844,13 +936,13 @@ class CrossCorrelation:
         nom2inst_periods = None
         if use_inst_freq:
             # array of arrival times
-            tarray = xcout.dist() / vgarray
+            tarray = dist / vgarray
             # indices of arrival times in time array
-            it = xcout.timearray.searchsorted(tarray)
-            it = np.minimum(len(xcout.timearray) - 1, np.maximum(1, it))
+            it = timearray.searchsorted(tarray)
+            it = np.minimum(len(timearray) - 1, np.maximum(1, it))
             # instantaneous freq: omega = |dphi/dt|(t=arrival time),
             # with phi = phase of FTAN
-            dt = xcout.timearray[it] - xcout.timearray[it - 1]
+            dt = timearray[it] - timearray[it - 1]
             nT = phase.shape[0]
             omega = np.abs((phase[list(range(nT)), it] -
                             phase[list(range(nT)), it - 1]) / dt)
@@ -945,8 +1037,7 @@ class CrossCorrelation:
                                          station2=self.station2,
                                          nom2inst_periods=nom2inst_periods,
                                          PARAM=PARAM)
-
-        return ampl_resampled, phase_resampled, vgcurve
+        return ampl_resampled, phase_resampled, vgcurve, time_phase
 
     def FTAN_complete(self, whiten=False, months=None, add_SNRs=True,
                       optimize_curve=None, PARAM=None, **kwargs):
@@ -1022,7 +1113,7 @@ class CrossCorrelation:
         # raw FTAN (no need to whiten any more)
         rawvg_init = np.zeros_like(RAWFTAN_PERIODS)
         try:
-            rawampl, _, rawvg = xc.FTAN(whiten=False,
+            rawampl, rawpha, rawvg, _= xc.FTAN(whiten=False,
                                         months=months,
                                         optimize_curve=optimize_curve,
                                         strength_smoothing=strength_smoothing,
@@ -1038,6 +1129,8 @@ class CrossCorrelation:
                 np.zeros((len(RAWFTAN_PERIODS), len(FTAN_VELOCITIES)))
             cleanampl = np.nan * \
                 np.zeros((len(CLEANFTAN_PERIODS), len(FTAN_VELOCITIES)))
+            cleanpha = np.nan * \
+                np.zeros((len(CLEANFTAN_PERIODS), len(FTAN_VELOCITIES)))
             rawvg = pstomo.DispersionCurve(periods=RAWFTAN_PERIODS,
                                            v=np.nan *
                                            np.zeros(len(RAWFTAN_PERIODS)),
@@ -1048,7 +1141,7 @@ class CrossCorrelation:
                                              np.zeros(len(CLEANFTAN_PERIODS)),
                                              station1=self.station1,
                                              station2=self.station2)
-            return rawampl, rawvg, cleanampl, cleanvg
+            return rawampl, rawpha,  rawvg, cleanampl, cleanpha, cleanvg, None
 
         # phase function from raw vg curve
         phase_corr = xc.phase_func(vgcurve=rawvg)
@@ -1056,7 +1149,7 @@ class CrossCorrelation:
         # clean FTAN
         cleanvg_init = np.zeros_like(CLEANFTAN_PERIODS)
         try:
-            cleanampl, _, cleanvg = xc.FTAN(whiten=False,
+            cleanampl, cleanpha, cleanvg, time_phase = xc.FTAN(whiten=False,
                                             phase_corr=phase_corr,
                                             months=months,
                                             optimize_curve=optimize_curve,
@@ -1075,7 +1168,7 @@ class CrossCorrelation:
                                              np.zeros(len(CLEANFTAN_PERIODS)),
                                              station1=self.station1,
                                              station2=self.station2)
-            return rawampl, rawvg, cleanampl, cleanvg
+            return rawampl, rawpha, rawvg, cleanampl, cleanpha, cleanvg, time_phase
 
         # adding spectral SNRs associated with the periods of the
         # clean vg curve
@@ -1142,7 +1235,7 @@ class CrossCorrelation:
                 # adding trimester vg curve
                 cleanvg.add_trimester(trimester_start, cleanvg_trimester)
 
-        return rawampl, rawvg, cleanampl, cleanvg
+        return rawampl, rawpha, rawvg, cleanampl, cleanpha, cleanvg, time_phase
 
     def phase_func(self, vgcurve):
         """
@@ -1247,7 +1340,6 @@ class CrossCorrelation:
         vmin, vmax = PARAM.signal_window_vmin, PARAM.signal_window_vmax
         signal2noise_trail = PARAM.signal2noise_trail
         noise_window_size = PARAM.noise_window_size
-        strength_smoothing = PARAM.strength_smoothing
         PERIOD_BANDS = PARAM.period_bands
         RAWFTAN_PERIODS = PARAM.rawftan_periods
         CLEANFTAN_PERIODS = PARAM.cleanftan_periods
@@ -1255,7 +1347,7 @@ class CrossCorrelation:
         bbox = PARAM.bbox_small 
         # performing FTAN analysis if needed
         if any(obj is None for obj in [rawampl, rawvg, cleanampl, cleanvg]):
-            rawampl, rawvg, cleanampl, cleanvg = self.FTAN_complete(
+            rawampl, _, rawvg, cleanampl,  _, cleanvg, _ = self.FTAN_complete(
                 whiten=whiten, months=months, add_SNRs=True,
                 PARAM=PARAM, **kwargs)
 
@@ -1521,9 +1613,6 @@ class CrossCorrelation:
 
         # write station info into sactrace
         sta1, sta2 = self.station1, self.station2
-
-        sta1name = ".".join([sta1.network, sta1.name])
-        sta2name = ".".join([sta2.network, sta2.name])
 
         # set time
         reftime =UTCDateTime(self.startday)
@@ -2087,7 +2176,7 @@ class CrossCorrelationCollection(AttribDict):
             sta1name, sta2name =  pair
             # single crosscorrelation instance
             xcorr = self[sta1name][sta2name]
-            sta1, sta2 = xcorr.station1, xcorr.station2
+            sta1 = xcorr.station1
             ids1, ids2 = xcorr.ids1, xcorr.ids2
 
             for string in ids1: ids1str = string
@@ -2607,7 +2696,7 @@ def preprocess_trace(trace, trimmer=None, paz=None, responses_spider=None,
     # ============================================
     tstart = dt.datetime.now()
     # removing response...
-    if paz or resp_file_path:
+    if paz :
         # ...using paz:
         trace.detrend(type='constant')
         trace.detrend(type='linear')
@@ -2950,6 +3039,7 @@ def FTAN(x, dt, periods, alpha, phase_corr=None):
     amplitude = np.zeros(shape=(len(periods), len(x)))
     phase = np.zeros(shape=(len(periods), len(x)))
 
+    
     # Fourier transform
     Xa = fft(x)
     # aray of frequencies
