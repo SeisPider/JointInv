@@ -1,13 +1,9 @@
 #!/usr/bin/python -u
-import os
-import gc
 import sys
 import warnings
 import datetime as dt
 import itertools as it
-import pickle
 import obspy.signal.cross_correlation
-from termcolor import colored
 from os.path import join
 
 # Personal lib.
@@ -17,9 +13,9 @@ from JointInv import logger
 from JointInv.psrespider import SourceResponse
 
 
-# #############################################################################
+# -----------------------------------------------------------------------------
 # Configuration and info. output
-# #############################################################################
+# -----------------------------------------------------------------------------
 
 MULTIPROCESSING = {'merge trace': False,
                    'process trace': True,
@@ -92,14 +88,16 @@ OUTBASENAME_PARTS = [
     '1bitnorm' if PARAM.onebit_norm else None,
     '+'.join(responsefrom)]
 
-OUTFILESPATH = join(PARAM.crosscorr_dir, '_'.join(p for p in OUTBASENAME_PARTS if p))
-msg = 'Default name of output files (no ext.):\n\t\t\t\t"{}"\n'.format(OUTFILESPATH)
+OUTFILESPATH = join(PARAM.crosscorr_dir, '_'.join(
+    p for p in OUTBASENAME_PARTS if p))
+msg = 'Default name of output files (no ext.):\n\t\t\t\t"{}"\n'.format(
+    OUTFILESPATH)
 logger.info(msg)
 
 
-# #############################################################################
-# Main progr
-# #############################################################################
+# -----------------------------------------------------------------------------
+# Main program
+# -----------------------------------------------------------------------------
 
 # Reading inventories in dataless seed and/or StationXML files
 dataless_inventories = []
@@ -113,9 +111,9 @@ xml_inventories = []
 if PARAM.use_stationxml:
     xml_inventories = psstation.get_stationxml_inventories(PARAM.stationxml_dir,
                                                            verbose=True)
-# #############################################################################
+# -----------------------------------------------------------------------------
 # Import stations info. and response files
-# #############################################################################
+# -----------------------------------------------------------------------------
 
 responses_spider = {}
 if PARAM.use_response_spider:
@@ -123,7 +121,7 @@ if PARAM.use_response_spider:
     responses_spider.update({"CENC": SourceResponse(join(PARAM.sacpz_dir,
                                                          "CENC"), "CENC")})
 
-# Initializing Trimer and scan stations 
+# Initializing Trimer and scan stations
 trimmer = trimmer.Trimmer(stationinfo=PARAM.stationinfo_dir,
                           catalog=PARAM.catalog_dir,
                           sacdir=join(PARAM.dataset_dir, "RawTraces"),
@@ -139,9 +137,9 @@ stations = psstation.get_stations(mseed_dir=PARAM.mseed_dir,
                                   endday=PARAM.endday,
                                   verbose=True)
 
-# #############################################################################
+# -----------------------------------------------------------------------------
 # Processing traces
-# #############################################################################
+# -----------------------------------------------------------------------------
 
 # Initializing collection of cross-correlations
 xc = pscrosscorr.CrossCorrelationCollection()
@@ -152,11 +150,12 @@ dates = [PARAM.fstday + dt.timedelta(days=i) for i in range(nday)]
 
 # Stacking CCFs monthly
 for date in dates:
-
+    # =====================================================================
     # Exporting the collection of cross-correlations after the end of each
     # processed month (allows to restart after a crash from that date)
-
     # export all ccfs in one file
+    # =====================================================================
+
     lastdate = date - dt.timedelta(days=1)
     monthdelta = date.month - lastdate.month
     if monthdelta != 0 and xc:
@@ -172,7 +171,6 @@ for date in dates:
         logger.info("Congraducation for finishing computation !")
         sys.exit()
 
-
     logger.info("Processing data of day {}".format(date))
 
     # loop on stations appearing in subdir corresponding to current month
@@ -185,10 +183,10 @@ for date in dates:
         date_stations = [sta for sta in date_stations
                          if sta.name in PARAM.crosscorr_stations_subset]
 
-    # =============================================================
+    # -------------------------------------------------------------------------
     # preparing functions that get one merged trace per station
     # and pre-process trace, ready to be parallelized (if required)
-    # =============================================================
+    # -------------------------------------------------------------------------
 
     def get_merged_trace(station):
         """
@@ -244,8 +242,8 @@ for date in dates:
                 trace=trace,
                 trimmer=trimmer,
                 paz=response,
-                responses_spider=responses_spider,
                 freqmin=PARAM.freqmin,
+                responses_spider=responses_spider,
                 freqmax=PARAM.freqmax,
                 freqmin_earthquake=PARAM.freqmin_eq,
                 freqmax_earthquake=PARAM.freqmax,
@@ -267,6 +265,7 @@ for date in dates:
             msg = 'Unhandled error: {}'.format(err)
             # printing output (error or ok) message
             logger.error('{}.{} [{}] '.format(network, station, msg))
+
         # although processing is performed in-place, trace is returned
         # in order to get it back after multi-processing
         return trace
@@ -293,11 +292,12 @@ for date in dates:
         if not tr:
             responses.append(None)
             continue
-
+    # ===============================================================
     # responses elements can be (1) dict of PAZ if response found in
     # dataless inventory, (2) None if response found in StationXML
     # inventory (directly attached to trace) or (3) False if no
     # response found
+    # ===============================================================
         try:
             response = pscrosscorr.get_or_attach_response(
                 trace=tr,
@@ -341,7 +341,7 @@ for date in dates:
     tracedict = {s.name: trace for s, trace in zip(
         date_stations, traces) if trace}
 
-    # TODO: I ensured the waveform can be preprocessed properly
+    # TODO: Ensure the waveform can be preprocessed properly
     #       verify the EGF result is right
     # ==============================================
     # stacking cross-correlations of the current day
@@ -351,12 +351,15 @@ for date in dates:
         logger.error("No cross-correlation for this day")
         continue
 
-
     xcorrdict = {}
     if MULTIPROCESSING['cross-corr']:
+
+        # =====================================================================
         # if multiprocessing is turned on, we pre-calculate cross-correlation
         # arrays between pairs of stations (one process per pair) and feed
         # them to xc.add() (which won't have to recalculate them)
+        # =====================================================================
+
         logger.info("Pre-calculating cross-correlation arrays")
 
         def xcorr_func(pair):

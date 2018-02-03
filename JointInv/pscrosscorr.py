@@ -2696,7 +2696,7 @@ def preprocess_trace(trace, trimmer=None, paz=None, responses_spider=None,
     # ============================================
     tstart = dt.datetime.now()
     # removing response...
-    if paz :
+    if paz and responses_spider: 
         # ...using paz:
         trace.detrend(type='constant')
         trace.detrend(type='linear')
