@@ -168,8 +168,10 @@ for date in dates:
         # export ccfs into many sac files
         xc.export2sac(crosscorr_dir=PARAM.crosscorr_dir)
 
-        # Reinitialize CrossCorrelationCollection class
-        xc = pscrosscorr.CrossCorrelationCollection()
+        # Finish one month computation, exit script
+        logger.info("Congraducation for finishing computation !")
+        sys.exit()
+
 
     logger.info("Processing data of day {}".format(date))
 

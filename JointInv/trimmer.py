@@ -252,15 +252,18 @@ class Trimmer(object):
             # determine starttime and endtime by maximum and minimum velocity
             starttime = event['origin'] + dist_km / self.by_speed["maximum"]
             endtime = event['origin'] + dist_km / self.by_speed["minimum"]
+            
             # ignore some outlier
             if (starttime > trend) or (endtime < trstart):
                 continue
             tr_trim = tr_copy.trim(starttime=starttime, endtime=endtime)
             st.append(tr_trim)
+            
             # no previous output
             if not self.read_sac(event, tr_trim.id):
                 self._writesac(st, event, station, outdir)
                 continue
+            
             # there is previous output
             for tr_pre in self.read_sac(event, tr_trim.id):
                 logger.debug(
@@ -268,9 +271,13 @@ class Trimmer(object):
                 logger.debug(
                     "type of current trace {}".format(st[0].data.dtype))
                 st.append(tr_pre)
+
+                # change data type 
+                for i in range(len(st)):
+                    st[i].data = st[i].data.astype("float64")
+
             logger.debug("Stream -> {}".format(st))
             st.merge()
-            print(station)
             self._writesac(st, event, station, outdir)
             logger.info("trim data of event -> {}".format(event['origin']))
 

@@ -1627,7 +1627,7 @@ class CrossCorrelation:
         # depth of station are set to zero
         # TODO: depth of stations are set to zero, we should have as check
 
-        sactr.stla, sactr.stlo, sactr.stdp = sta2.coord[0], sta2.coord[1], 0 
+        sactr.stlo, sactr.stla, sactr.stdp = sta2.coord[0], sta2.coord[1], 0 
         sactr.kstnm, sactr.knetwk = sta2.name, sta2.network
         sactr.kcmpnm = sta2.channel
 
@@ -1653,7 +1653,7 @@ class CrossCorrelation:
 
         # set elev. of station and event
         sactr.stel = sta2.coord[2] 
-        sactr.user2 = sta1.coord[1]
+        sactr.user2 = sta1.coord[2]
 
         return sactr
 
