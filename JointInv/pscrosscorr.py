@@ -2200,7 +2200,7 @@ class CrossCorrelationCollection(AttribDict):
 
             # format tranfer
             sactr = xcorr.xcorr2sac()
-            filename = ".".join([prefixsac, "sac"])
+            filename = ".".join([prefixsac, "SAC"])
             
             # export sac file
             sactr.write(filename)
