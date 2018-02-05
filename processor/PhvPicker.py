@@ -176,13 +176,18 @@ class InterStationCcfs(object):
         # export measure phase velocity and group velocity dispersion curve
         # --------------------------------------------------------------------
         # export phase velocity
-        outphdir = join(workwd, "_".join([CcfFilename, "ph"]))
+        outphdir = join(workwd, "_".join([CcfFilename, "PH"]))
         np.savetxt(outphdir, np.matrix([self.periods, self.cv, self.cvstd]).T,
                    fmt="%.5f")
 
         # export group velocity
-        outphdir = join(workwd, "_".join([CcfFilename, "gr"]))
+        outphdir = join(workwd, "_".join([CcfFilename, "GR"]))
         np.savetxt(outphdir, np.matrix([self.periods, self.gv, self.gvstd]).T,
+                   fmt="%.5f")
+        
+        # export snr
+        outphdir = join(workwd, "_".join([CcfFilename, "SNR"]))
+        np.savetxt(outphdir, np.matrix([self.periods, self.gv, self.snr]).T,
                    fmt="%.5f")
 
     def _get_measure_unceratinty(self, modeldir=None, aftanloc=None):

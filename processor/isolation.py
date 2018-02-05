@@ -5,30 +5,71 @@ import sys
 import glob
 from sklearn.tree import DecisionTreeClassifier as DTC
 
-from JointInv.machinelearn.base import load_disp, velomap
-from JointInv.global_var import logger
-from JointInv.psconfig import get_global_param
-from JointInv import psutils
+import subprocess 
+from subprocess import call
 
+
+from JointInv.machinelearn.base import gen_disp_classifier, velomap
+from JointInv.psconfig import get_global_param
+from JointInv import psutils, logger
 
 # Isolate waveform of an specific event
 def event_isolation(eventdir, refgvpath, outpath,
-                    cpspath=COMPUTER_PROGRAMS_IN_SEISMOLOGY_DIR,
-                    classifier=None, periodmin=25, periodmax=100):
+                    cpspath=None, classifier=None, periodmin=25, periodmax=100):
 
     dispfiles = glob.glob(join(eventdir, "*.disp"))
     for dispfile in dispfiles:
 
         # mainly
-        judgement = velomap(dispfile, refgvpath, classifier, periodmin=permin,
-                            periodmax=permax)
+        judgement = velomap(dispfile, refgvpath, trained_model=classifier,
+                            treshold=2)
         outfilepath = join(outpath, ".".join([judgement.id, "d"]))
         judgement.MFT962SURF96(outfilepath, cpspath)
-        judgement.isowithsacmat96(eventdir, outfilepath, cpspath=cpspath)
-        # move files
+        judgement.isowithsacmat96(srcpath=eventdir, surf96filepath=outfilepath,
+                                  cpspath=cpspath)
+        # move isolated traces and images in current directory to outpath 
         SACsfiles = join(eventdir, "*.SACs")
-        cmndstr = "mv {} {}".format(SACsfiles, outpath)
+        cmndstr = "mv {} {}\n mv ./*.png {}".format(SACsfiles, outpath, outpath)
         os.system(cmndstr)
+
+        # move measured dispersion curve to result path
+        cmndstr = "mv ./disp.out {}".format(join(outpath, ".".join([judgement.id,
+                                                                    "disp.out"])))
+        os.system(cmndstr)
+    
+def file_checker(eventdir):
+    """Check if their is nan in this file
+    """
+    
+    mainwd = os.getcwd()
+    os.chdir(eventdir)
+
+    sacfiles = glob.glob("*.SAC")
+    if not sacfiles:
+        logger.info("NoDataError -> remove {}".format(eventdir))
+        os.chdir(mainwd)
+        #call(['rm', "-r {}".format(eventdir)], shell=True)
+        os.rmdir(eventdir)
+        return 
+
+    for sacfile in sacfiles:
+        os.putenv("SAC_DISPLAY_COPYRIGHT", '0')
+        p = subprocess.Popen(['sac'], stdin=subprocess.PIPE)
+        s = "r {} \n".format(sacfile)
+        s += "w {} \n".format(sacfile)
+        s += "q \n"
+        p.communicate(s.encode())
+        
+        # catch the nan
+        sys_str = "saclst depmin depmax depmen f {}".format(sacfile)
+        proc = subprocess.Popen(sys_str, stdout=subprocess.PIPE,
+                                shell=True)
+        (out, err) = proc.communicate()
+        depmin, depmax, depmen = out.strip().split()[-3:]
+        if depmin == b'nan' or depmax == b'nan' or depmen == b'nan':
+            logger.info("DataError -> Delete {}".format(sacfile))
+            os.remove(sacfile)
+    os.chdir(mainwd)
 
 
 if __name__ == "__main__":
@@ -38,52 +79,44 @@ if __name__ == "__main__":
     dispersion curve with Decision Tree algorithm
     """
     # import configuration file
-    GBPARA = get_global_param("../data/configs/")
-
-
-    cpspath = GBPARA.cpspath
+    gbparam = get_global_param("../data/Configs/")
 
     # import training data and train model
-    disp = load_disp()
-    n_classes, pair = 2, [0, 1]
-    x = disp.data[:, pair]
-    y = disp.target
-    errweight = 1.0 / disp.data[:, -1]
-    clf = DTC(min_samples_split=20).fit(x, y, sample_weight=errweight)
+    clf = gen_disp_classifier() 
 
     # set para. for extract rough group velocity curve
     try:
-        rootdir = sys.argv[1]
+        dataset_dir =  gbparam.dataset_dir
     except IndexError:
         logger.error("Please input directory of dataset !")
-        rootdir = input()
+        rawtracedir = input()
 
-    permin, permax = 25, 100  # set period region
-    velomin, velomax = GBPARA.signal_window_vmin, GBPARA.signal_window_vmax
-    eventlist = glob.glob(join(rootdir, "rawtraces", "*"))
-    refgvpath = "../data/info/SREGN.ASC"
+    permin, permax = 20, 200  # set period region
+    velomin, velomax = gbparam.signal_window_vmin, gbparam.signal_window_vmax
+    eventlist = glob.glob(join(dataset_dir, "RawTraces", "*"))
+    refgvpath = "../data/Info/AK135SREGN.ASC"
 
     allsacmftpath = psutils.locate_external_scripts("allsacmft.sh")
+    
     for event in eventlist:
-        # automatically perform sacmft96
+        
+        file_checker(event)
+        # automatically perform sacmft
         cmndstr = "sh {} {} {} {} {} {}".format(allsacmftpath, event,
                                                 permin, permax, velomin, velomax)
         os.system(cmndstr)
 
         # check and create output dir
         eventid = event.split("/")[-1]
-        outputdir = join(rootdir, "isotraces", eventid)
-        if not os.path.exists(outputdir):
-            os.mkdir(outputdir)
-
+        outputdir = join(dataset_dir, "Isotraces", eventid)
+        os.makedirs(outputdir, exist_ok=True)
+        
         # isolate traces of this event
         try:
-            event_isolation(event, refgvpath, outputdir, cpspath=cpspath,
+            event_isolation(event, refgvpath, outputdir, cpspath=gbparam.cpspath,
                             classifier=clf, periodmin=permin, periodmax=permax)
             msg = 'ok'
         except Exception as err:
             # Unhandled exception!
             msg = 'Unhandled error: {}'.format(err)
         continue
-    if os.path.isfile("./disp.out"):
-        os.remove("./disp.out")
