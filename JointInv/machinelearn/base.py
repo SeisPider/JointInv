@@ -441,7 +441,7 @@ class velomap(object):
         # line fit and outlier digestion
         
         def spline_outlier(pointslist):
-            """Detect outlier with curve fit
+            """Detect outlier with curve fitting
             """
             periods = np.array([pt.per for pt in pointslist])
             velos = np.array([pt.velo for pt in pointslist])

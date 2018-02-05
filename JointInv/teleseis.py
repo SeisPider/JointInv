@@ -5,6 +5,7 @@
 from .psstation import Station
 from .distaz import DistAz
 from . import trimmer, psutils, logger
+from obspy import UTCDateTime
 
 import os
 from copy import copy
@@ -133,8 +134,15 @@ def scan_stations(dbdir, sacdir, fstday, endday, networks=None, channels=None,
         # coordinates of station in database
         staid = ".".join([sta.network, sta.name])
         try:
-            coords_set = [(stationdb[staid]['stlo'], stationdb[staid]['stla'],
-                           stationdb[staid]['stel'])]
+            time_list = stationdb[staid]
+            for subdict in time_list:
+                starttime = subdict["starttime"]
+                endtime = subdict["endtime"]
+                judgeday = UTCDateTime(fstday)
+                if judgeday < endtime and judgeday > starttime:
+                    stlo, stla = subdict['stlo'], subdict['stla'],
+                    stel = subdict['stel']
+                    coords_set = [(stlo, stla, stel)]
         except KeyError:
             coords_set = ()
 
@@ -170,10 +178,11 @@ def scan_stations(dbdir, sacdir, fstday, endday, networks=None, channels=None,
                 stations.remove(sta)
     return stations
 
-def common_line_judgement(event, station_pair, minangle=2.0):
+def common_line_judgement(event, station_pair, minangle=5.0):
     """Select matched station pair and event
+
     Parameters
-    ----------
+    ==========
     event : dict
         event contain info of event ['origin', 'latitude', 'longitude', 'depth'
                                      'magnitude']

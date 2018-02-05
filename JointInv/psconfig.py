@@ -45,7 +45,7 @@ def select_and_parse_config_file(basedir='./', ext='cnf', verbose=True):
 
     # resolve config file name
     conf_filename = basename(config_file).replace("." + ext, "")
-
+    
     conf = configparser.ConfigParser()
     conf.read(config_file)
 
@@ -62,7 +62,7 @@ def get_global_param(configdirname, ext='cnf', verbose=True):
     """
 
     config, conf_filename = select_and_parse_config_file(basedir=configdirname,
-                                                        ext='cnf', verbose=True)
+                                                        ext=ext, verbose=True)
 
     # -----
     # paths
